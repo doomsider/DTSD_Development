@@ -861,10 +861,6 @@ sm_playerfileupdate(){
 		then
 			as_user "echo PlayerLoggedIn: Yes >> $PLAYER"
 		fi
-		if ! grep -q "PlayerNeedsUpdating:" $PLAYER
-		then
-			as_user "echo PlayerNeedsUpdating: Yes >> $PLAYER"
-		fi
 		if ! grep -q "ChatCount:" $PLAYER
 		then
 			as_user "echo ChatCount: 0 >> $PLAYER"
@@ -876,6 +872,10 @@ sm_playerfileupdate(){
 		if ! grep -q "SpamKicks:" $PLAYER
 		then
 			as_user "echo SpamKicks: 0 >> $PLAYER"
+		fi
+		if ! grep -q "JustLoggedIn:" $PLAYER
+		then
+			as_user "echo JustLoggedIn: No >> $PLAYER"
 		fi
 	done
 }
@@ -925,11 +925,9 @@ then
 	then
 		PCONTROLOBJECT=$(echo ${PLAYERINFO[7]} | cut -d: -f2 | cut -d" " -f2 | cut -d[ -f1)
 #		echo "Player controlled object is $PCONTROLOBJECT"
-		PCONTROLTYPE=$(echo ${PLAYERINFO[7]} | rev | cut -d_ -f1 | rev | cut -d\) -f1)
+		PCONTROLTYPE=Spacesuit
 #		echo "Player controlled entity type $PCONTROLTYPE"
 	fi
-	PLASTLOGIN=$(echo ${PLAYERINFO[9]} | cut -d= -f2 | cut -d, -f1)
-#echo "Player last logged in $PLASTLOGIN"
 	PLASTUPDATE=$(date +%s)
 #echo "Player file last update is $PLASTUPDATE"
 	if [ -e $PLAYERFILE/$1 ] 
@@ -941,7 +939,6 @@ then
 		as_user "sed -i 's/PlayerLocation: .*/PlayerLocation: $PSECTOR/g' $PLAYERFILE/$1"
 		as_user "sed -i 's/PlayerControllingType: .*/PlayerControllingType: $PCONTROLTYPE/g' $PLAYERFILE/$1"
 		as_user "sed -i 's/PlayerControllingObject: .*/PlayerControllingObject: $PCONTROLOBJECT/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/PlayerLastLogin: .*/PlayerLastLogin: $PLASTLOGIN/g' $PLAYERFILE/$1"
 		as_user "sed -i 's/PlayerLastUpdate: .*/PlayerLastUpdate: $PLASTUPDATE/g' $PLAYERFILE/$1"
 		as_user "sed -i 's/PlayerLoggedIn: .*/PlayerLoggedIn: Yes/g' $PLAYERFILE/$1"
 	else
@@ -969,10 +966,10 @@ PlayerLastUpdate: $(date +%s)
 PlayerLastKilled: None
 PlayerKilledBy: None
 PlayerLoggedIn: Yes
-PlayerNeedsUpdating: No
 ChatCount: 0
 SpamWarning: No
 SpamKicks: 0
+JustLoggedIn: Yes
 _EOF_"
 		as_user "$WRITEPLAYERFILE"
 	fi
@@ -1149,7 +1146,6 @@ then
 else
 	as_user "echo $PLAYERDEAD was killed by an AI character >> $KILLLOG"
 fi
-as_user "sed -i 's/PlayerNeedsUpdating: .*/PlayerNeedsUpdating: Yes/g' $PLAYERFILE/$PLAYERDEAD"
 }
 log_admincommand() { 
 if [[ ! $@ == *org.schema.schine.network.server.AdminLocalClient* ]] && [[ ! $@ =~ "no slot free for" ]]
@@ -1190,11 +1186,6 @@ PLAYEREXITING=$(echo $@ | cut -d\[ -f4 | cut -d\; -f1 | tr -d ' ')
 #Checks if the player file exists or if the player needs updating (after login and after death)
 if [[ ! -f $PLAYERFILE/$PLAYEREXITING ]]
 then
-	log_playerinfo $PLAYEREXITING
-fi
-if grep "PlayerNeedsUpdating: Yes" $PLAYERFILE/$PLAYEREXITING >/dev/null
-then
-	as_user "sed -i 's/PlayerNeedsUpdating: Yes/PlayerNeedsUpdating: No/g' $PLAYERFILE/$PLAYEREXITING"
 	log_playerinfo $PLAYEREXITING
 fi
 # This removes ship name from player.log and replace it with spacesuit when player is added back to Playercharacter             
@@ -1554,19 +1545,19 @@ PlayerLastUpdate: $(date +%s)
 PlayerLastKilled: None
 PlayerKilledBy: None
 PlayerLoggedIn: Yes
-PlayerNeedsUpdating: Yes
 ChatCount: 0
 SpamWarning: No
 SpamKicks: 0
+JustLoggedIn: Yes
 _EOF_"
 # echo "this is current user $USERNAME"
 as_user "$WRITEPLAYERFILE"
 else
-	as_user "sed -i 's/PlayerNeedsUpdating: No/PlayerNeedsUpdating: Yes/g' $PLAYERFILE/$LOGINPLAYER"
+	as_user "sed -i 's/JustLoggedIn: .*/JustLoggedIn: Yes/g' $PLAYERFILE/$LOGINPLAYER"
 	as_user "sed -i 's/ChatCount: .*/ChatCount: 0/g' $PLAYERFILE/$LOGINPLAYER"
 	as_user "sed -i 's/SpamWarning: .*/SpamWarning: No/g' $PLAYERFILE/$LOGINPLAYER"
 fi
-
+as_user "sed -i 's/PlayerLastLogin: .*/PlayerLastLogin: $(date)/g' $PLAYERFILE/$LOGINPLAYER"
 LOGON="$LOGINPLAYER logged on at $(date '+%b_%d_%Y_%H.%M.%S') server time"
 as_user "echo $LOGON >> $GUESTBOOK"
 }
@@ -1619,10 +1610,16 @@ fi
 	
 }
 log_initstring() {
-INITPLAYER=$(echo $@ | cut -d\[ -f3 | cut -d\; -f1)
-LOGINMESSAGE="Welcome to the server $INITPLAYER! Type !HELP for chat commands"
-# A chat message that is displayed whenever a player logs in
-as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER $LOGINMESSAGE\n'"
+INITPLAYER=$(echo $@ | cut -d\[ -f3 | cut -d\; -f1 | tr -d " ")
+sleep 0.5
+log_playerinfo $INITPLAYER
+if grep -q "JustLoggedIn: Yes" $PLAYERFILE/$INITPLAYER 
+then
+	LOGINMESSAGE="Welcome to the server $INITPLAYER! Type !HELP for chat commands"
+	# A chat message that is displayed whenever a player logs in
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER $LOGINMESSAGE\n'"
+	as_user "sed -i 's/JustLoggedIn: .*/JustLoggedIn: No/g' $PLAYERFILE/$INITPLAYER"
+fi
 }
 spam_prevention(){
 if [ $SPAMPREVENTION = "Yes" ]
@@ -3408,6 +3405,9 @@ upgradestar)
 	sm_upgrade
 	sm_start
 	sm_cronrestore
+	;;
+updatefiles)
+	sm_playerfileupdate
 	;;
 *)
 echo "Doomsider's and Titanmasher's Starmade Daemon (DSD) V.16"
