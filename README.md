@@ -20,9 +20,9 @@ Add ability to gather statistics for the server such as players on, size of dire
 Add a management panel option with the use of tmux to offer a display of the current log, chat, statistics/status of server
   and allow player to interact with the server with hotkey strokes
   
+Add random ingame tips
 
-
-
+Add an online log
 
 
 New commands/functions working on:
