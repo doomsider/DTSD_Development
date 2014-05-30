@@ -76,6 +76,9 @@ STATIONLOG=$STARTERPATH/logs/station.log #The file that contains all of the stat
 PLANETLOG=$STARTERPATH/logs/planet.log #The file that contains all of the planets on the server
 SHIPBUYLOG=$STARTERPATH/logs/shipbuy.log #The file that contains all the ships spawned on the server
 BANKLOG=$STARTERPATH/logs/bank.log #The file that contains all transactions made on the server
+ONLINELOG=$STARTERPATH/logs/online.log #The file that contains the list of currently online players
+TIPFILE=$STARTERPATH/logs/tips.txt #The file that contains random tips that will be told to players
+VOTESHOP=$STARTERPATH/logs/voteshop.txt #The file that contains all shop purchases that can be made with voting points
 
 #-------------------------Spam Settings-------------------------------------------------------------------
 
@@ -84,7 +87,6 @@ SPAMLIMIT=5 # The number of messages that can be sent within the $SPAMTIMER befo
 SPAMTIMER=10 # The time taken for the message counter to reduce by one after sending a chat message
 SPAMALLOWANCE=2 # The number of messages allowed between receiving the warning and being kicked
 SPAMKICKLIMIT=2 # The number of kicks from the server before the player is banned (Set to really high to turn off)
-
 
 #------------------------Game settings----------------------------------------------------------------------------
 
@@ -105,6 +107,7 @@ FOLDLIMIT=900 #Due to the way bash square roots numbers, this is the square of t
 UNIVERSEBOARDER=YES #Turn on and off the universe boarder (YES/NO)
 UNIVERSECENTER=\"2,2,2\" #Set the center of the universe boarder
 UNIVERSERADIUS=50 #Set the radius of the universe boarder around 
+TIPINTERVAL=600 #Number of seconds between each tip being shown
 STARTINGRANK=Ensign #The initial rank players recieve when they log in for the first time. Can be edited.
 _EOF_"
 as_user "$CONFIGCREATE"
@@ -766,6 +769,115 @@ _EOF_"
 #			echo "all done"
 		done
 	done	
+}
+sm_playerfileupdate(){
+	for PLAYER in $PLAYERFILE/*
+	do	
+		if ! grep -q "Made on" $PLAYER
+		then
+			as_user "echo Made on $(date) >> $PLAYER"
+		fi
+		if ! grep -q "Rank:" $PLAYER
+		then
+			as_user "echo Rank: [$STARTINGRANK] >> $PLAYER"
+		fi 
+		if ! grep -q "CreditsInBank" $PLAYER
+		then
+			as_user "echo CreditsInBank: 0 >> $PLAYER"
+		fi
+		if ! grep -q "VotingPoints:" $PLAYER
+		then
+			as_user "echo VotingPoints: 0 >> $PLAYER"
+		fi
+		if ! grep -q "CurrentVotes:" $PLAYER
+		then
+			as_user "echo CurrentVotes: 0 >> $PLAYER"
+		fi
+		if ! grep -q "Bounty:" $PLAYER
+		then
+			as_user "echo Bounty: 0 >> $PLAYER"
+		fi
+		if ! grep -q "WarpTeir:" $PLAYER
+		then
+			as_user "echo WarpTeir: 1 >> $PLAYER"
+		fi
+		if ! grep -q "JumpDisabled:" $PLAYER
+		then
+			as_user "echo JumpDisabled: 0 >> $PLAYER"
+		fi
+		if ! grep -q "CommandConfirm:" $PLAYER
+		then
+			as_user "echo CommandConfirm: 0 >> $PLAYER"
+		fi
+		if ! grep -q "CurrentIP:" $PLAYER
+		then
+			as_user "echo CurrentIP: 0.0.0.0 >> $PLAYER"
+		fi
+		if ! grep -q "CurrentCredits:" $PLAYER
+		then
+			as_user "echo CurrentCredits: 0 >> $PLAYER"
+		fi
+		if ! grep -q "PlayerFaction:" $PLAYER
+		then
+			as_user "echo PlayerFaction: None >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLocation:" $PLAYER
+		then
+			as_user "echo PlayerLocation: 2,2,2 >> $PLAYER"
+		fi
+		if ! grep -q "PlayerControllingType:" $PLAYER
+		then
+			as_user "echo PlayerControllingType: PlayerCharacter >> $PLAYER"
+		fi
+		if ! grep -q "PlayerControllingObject:" $PLAYER
+		then
+			as_user "echo PlayerControllingObject: Spacesuit >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLastLogin:" $PLAYER
+		then
+			as_user "echo PlayerLastLogin: 0 >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLastCore:" $PLAYER
+		then
+			as_user "echo PlayerLastCore: 0 >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLastFold:" $PLAYER
+		then
+			as_user "echo PlayerLastFold: 0 >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLastUpdate:" $PLAYER
+		then
+			as_user "echo PlayerLastUpdate: $(date +%s) >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLastKilled:" $PLAYER
+		then
+			as_user "echo PlayerLastKilled: None >> $PLAYER"
+		fi
+		if ! grep -q "PlayerKilledBy:" $PLAYER
+		then
+			as_user "echo PlayerKilledBy: None >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLoggedIn:" $PLAYER
+		then
+			as_user "echo PlayerLoggedIn: Yes >> $PLAYER"
+		fi
+		if ! grep -q "PlayerNeedsUpdating:" $PLAYER
+		then
+			as_user "echo PlayerNeedsUpdating: Yes >> $PLAYER"
+		fi
+		if ! grep -q "ChatCount:" $PLAYER
+		then
+			as_user "echo ChatCount: 0 >> $PLAYER"
+		fi
+		if ! grep -q "SpamWarning:" $PLAYER
+		then
+			as_user "echo SpamWarning: No >> $PLAYER"
+		fi
+		if ! grep -q "SpamKicks:" $PLAYER
+		then
+			as_user "echo SpamKicks: 0 >> $PLAYER"
+		fi
+	done
 }
 log_playerinfo() { 
 #Checks if the player has a mailbox file
