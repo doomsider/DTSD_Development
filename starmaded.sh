@@ -186,6 +186,7 @@ else
     if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null 
     then
 		echo "$SERVICE is now running."
+		as_user "echo '' > $ONLINELOG"
 # Start sm_screemlog if logging is set to yes
 		if [ "$LOGGING" = "YES" ]
 		then
@@ -1177,6 +1178,7 @@ as_user "sed -i 's/PlayerLoggedIn: Yes/PlayerLoggedIn: No/g' $PLAYERFILE/$LOGOUT
 # Echo current string and array to the guestboot as a log off
 LOGOFF="$LOGOUTPLAYER logged off at $(date '+%b_%d_%Y_%H.%M.%S') server time"
 as_user "echo $LOGOFF >> $GUESTBOOK"
+as_user "sed -i '/$LOGOUTPLAYER/d' $ONLINELOG"
 }
 log_boarding() { 
 #echo "Boarding detected"
@@ -1560,6 +1562,7 @@ fi
 as_user "sed -i 's/PlayerLastLogin: .*/PlayerLastLogin: $(date)/g' $PLAYERFILE/$LOGINPLAYER"
 LOGON="$LOGINPLAYER logged on at $(date '+%b_%d_%Y_%H.%M.%S') server time"
 as_user "echo $LOGON >> $GUESTBOOK"
+as_user "echo $LOGINPLAYER >> $ONLINELOG"
 }
 log_universeboarder() { 
 if [ "$UNIVERSEBOARDER" = "YES" ]
