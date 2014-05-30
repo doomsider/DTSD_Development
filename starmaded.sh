@@ -1050,7 +1050,7 @@ fi
 log_shipbuy() { 
 SHIPBOUGHT=$(echo $@ | tr -d \( | tr -d \) | tr -d ";" )
 # Format the ship buying for he ship buy log
-WRITEBPIGHT="$SHIPBOUGHT on $(date '+%b_%d_%Y_%H.%M.%S') >> $SHIPBUYLOG"
+WRITEBPIGHT="echo $SHIPBOUGHT on $(date '+%b_%d_%Y_%H.%M.%S') >> $SHIPBUYLOG"
 as_user "$WRITEBPIGHT"
 }
 log_playerlogout() { 
