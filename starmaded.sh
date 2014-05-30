@@ -78,7 +78,6 @@ SHIPBUYLOG=$STARTERPATH/logs/shipbuy.log #The file that contains all the ships s
 BANKLOG=$STARTERPATH/logs/bank.log #The file that contains all transactions made on the server
 ONLINELOG=$STARTERPATH/logs/online.log #The file that contains the list of currently online players
 TIPFILE=$STARTERPATH/logs/tips.txt #The file that contains random tips that will be told to players
-VOTESHOP=$STARTERPATH/logs/voteshop.txt #The file that contains all shop purchases that can be made with voting points
 
 #-------------------------Spam Settings-------------------------------------------------------------------
 
@@ -103,6 +102,7 @@ GATETEIR[8]=\"20 5 70\"
 GATETEIR[9]=\"30 5 60\"
 GATEREFUND=90 #percentage of the cost of the gate that players get back
 VOTECHECKDELAY=10 #The time in seconds between each check of starmade-servers.org
+CREDITSPERVOTE=1000000 # The number of credits a player gets per voting point.
 FOLDLIMIT=900 #Due to the way bash square roots numbers, this is the square of the distance limit to be more accurate with distances
 UNIVERSEBOARDER=YES #Turn on and off the universe boarder (YES/NO)
 UNIVERSECENTER=\"2,2,2\" #Set the center of the universe boarder
@@ -2544,6 +2544,32 @@ function COMMAND_BALANCE(){
 	else
 	BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d: -f2 | tr -d ' ')
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - You have $BALANCECREDITS credits\n'"
+	fi
+}
+function COMMAND_VOTEEXCHANGE(){
+#Converts the specified number of voting points into credits at the rate of 1,000,000 credits per vote
+#USAGE: !VOTEEXCHANGE <Amount>
+	if [ "$#" -ne "2" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !VOTEEXCHANGE <Amount>\n'"
+	else
+		if [ $2 -gt 0 ] 2>/dev/null
+		then
+			BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d: -f2 | tr -d ' ')
+			VOTEBALANCE=$(grep "VotingPoints:" $PLAYERFILE/$1 | cut -d" " -f2)
+			if [ $VOTEBALANCE -ge $2 ]
+			then
+				NEWVOTE=$(($VOTEBALANCE - $2))
+				NEWCREDITS=$(($BALANCECREDITS + $CREDITSPERVOTE * $2))
+				as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $NEWCREDITS/g' $PLAYERFILE/$1"
+				as_user "sed -i 's/VotingPoints: .*/VotingPoints: $NEWVOTE/g' $PLAYERFILE/$1"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You traded in $2 voting points for $(($BALANCECREDITS + $CREDITSPERVOTE * $2)) credits. The credits have been sent to your bank account.\n'"
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You dont have enough voting points to do that! You only have $VOTEBALANCE voting points\n'"
+			fi
+		else
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid amount entered. Please only use positive whole numbers.\n'"
+		fi
 	fi
 }
 
