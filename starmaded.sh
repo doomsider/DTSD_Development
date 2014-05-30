@@ -76,6 +76,9 @@ STATIONLOG=$STARTERPATH/logs/station.log #The file that contains all of the stat
 PLANETLOG=$STARTERPATH/logs/planet.log #The file that contains all of the planets on the server
 SHIPBUYLOG=$STARTERPATH/logs/shipbuy.log #The file that contains all the ships spawned on the server
 BANKLOG=$STARTERPATH/logs/bank.log #The file that contains all transactions made on the server
+ONLINELOG=$STARTERPATH/logs/online.log #The file that contains the list of currently online players
+TIPFILE=$STARTERPATH/logs/tips.txt #The file that contains random tips that will be told to players
+VOTESHOP=$STARTERPATH/logs/voteshop.txt #The file that contains all shop purchases that can be made with voting points
 
 #-------------------------Spam Settings-------------------------------------------------------------------
 
@@ -84,7 +87,6 @@ SPAMLIMIT=5 # The number of messages that can be sent within the $SPAMTIMER befo
 SPAMTIMER=10 # The time taken for the message counter to reduce by one after sending a chat message
 SPAMALLOWANCE=2 # The number of messages allowed between receiving the warning and being kicked
 SPAMKICKLIMIT=2 # The number of kicks from the server before the player is banned (Set to really high to turn off)
-
 
 #------------------------Game settings----------------------------------------------------------------------------
 
@@ -105,6 +107,7 @@ FOLDLIMIT=900 #Due to the way bash square roots numbers, this is the square of t
 UNIVERSEBOARDER=YES #Turn on and off the universe boarder (YES/NO)
 UNIVERSECENTER=\"2,2,2\" #Set the center of the universe boarder
 UNIVERSERADIUS=50 #Set the radius of the universe boarder around 
+TIPINTERVAL=600 #Number of seconds between each tip being shown
 STARTINGRANK=Ensign #The initial rank players recieve when they log in for the first time. Can be edited.
 _EOF_"
 as_user "$CONFIGCREATE"
@@ -183,6 +186,7 @@ else
     if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null 
     then
 		echo "$SERVICE is now running."
+		as_user "echo '' > $ONLINELOG"
 # Start sm_screemlog if logging is set to yes
 		if [ "$LOGGING" = "YES" ]
 		then
@@ -643,6 +647,7 @@ SM_LOG_PID=$$
 # Chat commands are controlled by /playerfile/playername which contains the their rank and 
 # rankcommands.log which has ranks followed by the commands that they are allowed to call
 autovoteretrieval &
+randomhelptips &
 # Checks to see if rankcommands.log exists and if not create a basic one
 echo "Logging started at $(date '+%b_%d_%Y_%H.%M.%S')"
 if [ -e $RANKCOMMANDS ]; then
@@ -767,6 +772,115 @@ _EOF_"
 		done
 	done	
 }
+sm_playerfileupdate(){
+	for PLAYER in $PLAYERFILE/*
+	do	
+		if ! grep -q "Made on" $PLAYER
+		then
+			as_user "echo Made on $(date) >> $PLAYER"
+		fi
+		if ! grep -q "Rank:" $PLAYER
+		then
+			as_user "echo Rank: [$STARTINGRANK] >> $PLAYER"
+		fi 
+		if ! grep -q "CreditsInBank" $PLAYER
+		then
+			as_user "echo CreditsInBank: 0 >> $PLAYER"
+		fi
+		if ! grep -q "VotingPoints:" $PLAYER
+		then
+			as_user "echo VotingPoints: 0 >> $PLAYER"
+		fi
+		if ! grep -q "CurrentVotes:" $PLAYER
+		then
+			as_user "echo CurrentVotes: 0 >> $PLAYER"
+		fi
+		if ! grep -q "Bounty:" $PLAYER
+		then
+			as_user "echo Bounty: 0 >> $PLAYER"
+		fi
+		if ! grep -q "WarpTeir:" $PLAYER
+		then
+			as_user "echo WarpTeir: 1 >> $PLAYER"
+		fi
+		if ! grep -q "JumpDisabled:" $PLAYER
+		then
+			as_user "echo JumpDisabled: 0 >> $PLAYER"
+		fi
+		if ! grep -q "CommandConfirm:" $PLAYER
+		then
+			as_user "echo CommandConfirm: 0 >> $PLAYER"
+		fi
+		if ! grep -q "CurrentIP:" $PLAYER
+		then
+			as_user "echo CurrentIP: 0.0.0.0 >> $PLAYER"
+		fi
+		if ! grep -q "CurrentCredits:" $PLAYER
+		then
+			as_user "echo CurrentCredits: 0 >> $PLAYER"
+		fi
+		if ! grep -q "PlayerFaction:" $PLAYER
+		then
+			as_user "echo PlayerFaction: None >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLocation:" $PLAYER
+		then
+			as_user "echo PlayerLocation: 2,2,2 >> $PLAYER"
+		fi
+		if ! grep -q "PlayerControllingType:" $PLAYER
+		then
+			as_user "echo PlayerControllingType: PlayerCharacter >> $PLAYER"
+		fi
+		if ! grep -q "PlayerControllingObject:" $PLAYER
+		then
+			as_user "echo PlayerControllingObject: Spacesuit >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLastLogin:" $PLAYER
+		then
+			as_user "echo PlayerLastLogin: 0 >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLastCore:" $PLAYER
+		then
+			as_user "echo PlayerLastCore: 0 >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLastFold:" $PLAYER
+		then
+			as_user "echo PlayerLastFold: 0 >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLastUpdate:" $PLAYER
+		then
+			as_user "echo PlayerLastUpdate: $(date +%s) >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLastKilled:" $PLAYER
+		then
+			as_user "echo PlayerLastKilled: None >> $PLAYER"
+		fi
+		if ! grep -q "PlayerKilledBy:" $PLAYER
+		then
+			as_user "echo PlayerKilledBy: None >> $PLAYER"
+		fi
+		if ! grep -q "PlayerLoggedIn:" $PLAYER
+		then
+			as_user "echo PlayerLoggedIn: Yes >> $PLAYER"
+		fi
+		if ! grep -q "ChatCount:" $PLAYER
+		then
+			as_user "echo ChatCount: 0 >> $PLAYER"
+		fi
+		if ! grep -q "SpamWarning:" $PLAYER
+		then
+			as_user "echo SpamWarning: No >> $PLAYER"
+		fi
+		if ! grep -q "SpamKicks:" $PLAYER
+		then
+			as_user "echo SpamKicks: 0 >> $PLAYER"
+		fi
+		if ! grep -q "JustLoggedIn:" $PLAYER
+		then
+			as_user "echo JustLoggedIn: No >> $PLAYER"
+		fi
+	done
+}
 log_playerinfo() { 
 #Checks if the player has a mailbox file
 #echo "$1 is the player name"
@@ -813,11 +927,9 @@ then
 	then
 		PCONTROLOBJECT=$(echo ${PLAYERINFO[7]} | cut -d: -f2 | cut -d" " -f2 | cut -d[ -f1)
 #		echo "Player controlled object is $PCONTROLOBJECT"
-		PCONTROLTYPE=$(echo ${PLAYERINFO[7]} | rev | cut -d_ -f1 | rev | cut -d\) -f1)
+		PCONTROLTYPE=Spacesuit
 #		echo "Player controlled entity type $PCONTROLTYPE"
 	fi
-	PLASTLOGIN=$(echo ${PLAYERINFO[9]} | cut -d= -f2 | cut -d, -f1)
-#echo "Player last logged in $PLASTLOGIN"
 	PLASTUPDATE=$(date +%s)
 #echo "Player file last update is $PLASTUPDATE"
 	if [ -e $PLAYERFILE/$1 ] 
@@ -829,7 +941,6 @@ then
 		as_user "sed -i 's/PlayerLocation: .*/PlayerLocation: $PSECTOR/g' $PLAYERFILE/$1"
 		as_user "sed -i 's/PlayerControllingType: .*/PlayerControllingType: $PCONTROLTYPE/g' $PLAYERFILE/$1"
 		as_user "sed -i 's/PlayerControllingObject: .*/PlayerControllingObject: $PCONTROLOBJECT/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/PlayerLastLogin: .*/PlayerLastLogin: $PLASTLOGIN/g' $PLAYERFILE/$1"
 		as_user "sed -i 's/PlayerLastUpdate: .*/PlayerLastUpdate: $PLASTUPDATE/g' $PLAYERFILE/$1"
 		as_user "sed -i 's/PlayerLoggedIn: .*/PlayerLoggedIn: Yes/g' $PLAYERFILE/$1"
 	else
@@ -857,10 +968,10 @@ PlayerLastUpdate: $(date +%s)
 PlayerLastKilled: None
 PlayerKilledBy: None
 PlayerLoggedIn: Yes
-PlayerNeedsUpdating: No
 ChatCount: 0
 SpamWarning: No
 SpamKicks: 0
+JustLoggedIn: Yes
 _EOF_"
 		as_user "$WRITEPLAYERFILE"
 	fi
@@ -1037,7 +1148,6 @@ then
 else
 	as_user "echo $PLAYERDEAD was killed by an AI character >> $KILLLOG"
 fi
-as_user "sed -i 's/PlayerNeedsUpdating: .*/PlayerNeedsUpdating: Yes/g' $PLAYERFILE/$PLAYERDEAD"
 }
 log_admincommand() { 
 if [[ ! $@ == *org.schema.schine.network.server.AdminLocalClient* ]] && [[ ! $@ =~ "no slot free for" ]]
@@ -1069,6 +1179,7 @@ as_user "sed -i 's/PlayerLoggedIn: Yes/PlayerLoggedIn: No/g' $PLAYERFILE/$LOGOUT
 # Echo current string and array to the guestboot as a log off
 LOGOFF="$LOGOUTPLAYER logged off at $(date '+%b_%d_%Y_%H.%M.%S') server time"
 as_user "echo $LOGOFF >> $GUESTBOOK"
+as_user "sed -i '/$LOGOUTPLAYER/d' $ONLINELOG"
 }
 log_boarding() { 
 #echo "Boarding detected"
@@ -1078,11 +1189,6 @@ PLAYEREXITING=$(echo $@ | cut -d\[ -f4 | cut -d\; -f1 | tr -d ' ')
 #Checks if the player file exists or if the player needs updating (after login and after death)
 if [[ ! -f $PLAYERFILE/$PLAYEREXITING ]]
 then
-	log_playerinfo $PLAYEREXITING
-fi
-if grep "PlayerNeedsUpdating: Yes" $PLAYERFILE/$PLAYEREXITING >/dev/null
-then
-	as_user "sed -i 's/PlayerNeedsUpdating: Yes/PlayerNeedsUpdating: No/g' $PLAYERFILE/$PLAYEREXITING"
 	log_playerinfo $PLAYEREXITING
 fi
 # This removes ship name from player.log and replace it with spacesuit when player is added back to Playercharacter             
@@ -1442,21 +1548,22 @@ PlayerLastUpdate: $(date +%s)
 PlayerLastKilled: None
 PlayerKilledBy: None
 PlayerLoggedIn: Yes
-PlayerNeedsUpdating: Yes
 ChatCount: 0
 SpamWarning: No
 SpamKicks: 0
+JustLoggedIn: Yes
 _EOF_"
 # echo "this is current user $USERNAME"
 as_user "$WRITEPLAYERFILE"
 else
-	as_user "sed -i 's/PlayerNeedsUpdating: No/PlayerNeedsUpdating: Yes/g' $PLAYERFILE/$LOGINPLAYER"
+	as_user "sed -i 's/JustLoggedIn: .*/JustLoggedIn: Yes/g' $PLAYERFILE/$LOGINPLAYER"
 	as_user "sed -i 's/ChatCount: .*/ChatCount: 0/g' $PLAYERFILE/$LOGINPLAYER"
 	as_user "sed -i 's/SpamWarning: .*/SpamWarning: No/g' $PLAYERFILE/$LOGINPLAYER"
 fi
-
+as_user "sed -i 's/PlayerLastLogin: .*/PlayerLastLogin: $(date)/g' $PLAYERFILE/$LOGINPLAYER"
 LOGON="$LOGINPLAYER logged on at $(date '+%b_%d_%Y_%H.%M.%S') server time"
 as_user "echo $LOGON >> $GUESTBOOK"
+as_user "echo $LOGINPLAYER >> $ONLINELOG"
 }
 log_universeboarder() { 
 if [ "$UNIVERSEBOARDER" = "YES" ]
@@ -1507,10 +1614,43 @@ fi
 	
 }
 log_initstring() {
-INITPLAYER=$(echo $@ | cut -d\[ -f3 | cut -d\; -f1)
-LOGINMESSAGE="Welcome to the server $INITPLAYER! Type !HELP for chat commands"
-# A chat message that is displayed whenever a player logs in
-as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER $LOGINMESSAGE\n'"
+INITPLAYER=$(echo $@ | cut -d\[ -f3 | cut -d\; -f1 | tr -d " ")
+sleep 0.5
+log_playerinfo $INITPLAYER
+if grep -q "JustLoggedIn: Yes" $PLAYERFILE/$INITPLAYER 
+then
+	LOGINMESSAGE="Welcome to the server $INITPLAYER! Type !HELP for chat commands"
+	# A chat message that is displayed whenever a player logs in
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER $LOGINMESSAGE\n'"
+	as_user "sed -i 's/JustLoggedIn: .*/JustLoggedIn: No/g' $PLAYERFILE/$INITPLAYER"
+fi
+}
+randomhelptips(){
+if [ ! -e $TIPFILE ]
+then
+	TIPTEXT="cat > $TIPFILE <<_EOF_
+!HELP is your fried! If you are stuck on a command, use !HELP <Command>
+Want to get from place to place quickly? Try !FOLD
+Ever wanted to be rewarded for voting for the server? Vote now at starmade-servers.org to get voting points!
+Been voting a lot lately? You can spend your voting points on a Jump Gate! Try !ADDJUMP 
+Want to reward people for killing your arch enemy? Try !POSTBOUNTY
+Fancy becoming a bounty hunter? Use !LISTBOUNTY to see all bounties
+Killed someone with a bounty recently? Try using !COLLECTBOUNTY
+Got too much money? Store some in your bank account with !DEPOSIT
+Need to get some money? Take some out of your bank account with !WITHDRAW
+Stuck in the middle of nowhere but dont want to suicide? Try !CORE
+Want to tell your friend youve found something but theyre offline? Try !MAIL SEND
+Logged in and you have an unread message? Try !MAIL LIST Unread
+Want to secretly use a command? Try using a command inside a PM to yourself!
+_EOF_"
+	as_user "$TIPTEXT"
+fi
+while [ -e /proc/$SM_LOG_PID ]
+do
+	RANDLINE=$(($RANDOM % $(wc -l < "$TIPFILE") + 1))
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/chat $(sed -n ${RANDLINE}p $TIPFILE)\n'"
+	sleep $TIPINTERVAL
+done
 }
 spam_prevention(){
 if [ $SPAMPREVENTION = "Yes" ]
@@ -3296,6 +3436,9 @@ upgradestar)
 	sm_upgrade
 	sm_start
 	sm_cronrestore
+	;;
+updatefiles)
+	sm_playerfileupdate
 	;;
 *)
 echo "Doomsider's and Titanmasher's Starmade Daemon (DSD) V.16"

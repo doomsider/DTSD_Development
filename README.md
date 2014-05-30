@@ -21,8 +21,14 @@ Add ability to gather statistics for the server such as players on, size of dire
 Add a management panel option with the use of tmux to offer a display of the current log, chat, statistics/status of server
   and allow player to interact with the server with hotkeys
   
+<<<<<<< HEAD
 Add a mass export option to export all sectors with ships, stations, and planets for backup and restoration
 
+=======
+Add random ingame tips
+
+Add an online log
+>>>>>>> f85f49735f938d9c17046ad4b485488426793c5e
 
 
 New commands/functions working on:
