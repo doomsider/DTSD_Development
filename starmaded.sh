@@ -647,6 +647,7 @@ SM_LOG_PID=$$
 # Chat commands are controlled by /playerfile/playername which contains the their rank and 
 # rankcommands.log which has ranks followed by the commands that they are allowed to call
 autovoteretrieval &
+randomhelptips &
 # Checks to see if rankcommands.log exists and if not create a basic one
 echo "Logging started at $(date '+%b_%d_%Y_%H.%M.%S')"
 if [ -e $RANKCOMMANDS ]; then
@@ -1623,6 +1624,33 @@ then
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER $LOGINMESSAGE\n'"
 	as_user "sed -i 's/JustLoggedIn: .*/JustLoggedIn: No/g' $PLAYERFILE/$INITPLAYER"
 fi
+}
+randomhelptips(){
+if [ ! -e $TIPFILE ]
+then
+	TIPTEXT="cat > $TIPFILE <<_EOF_
+!HELP is your fried! If you are stuck on a command, use !HELP <Command>
+Want to get from place to place quickly? Try !FOLD
+Ever wanted to be rewarded for voting for the server? Vote now at starmade-servers.org to get voting points!
+Been voting a lot lately? You can spend your voting points on a Jump Gate! Try !ADDJUMP 
+Want to reward people for killing your arch enemy? Try !POSTBOUNTY
+Fancy becoming a bounty hunter? Use !LISTBOUNTY to see all bounties
+Killed someone with a bounty recently? Try using !COLLECTBOUNTY
+Got too much money? Store some in your bank account with !DEPOSIT
+Need to get some money? Take some out of your bank account with !WITHDRAW
+Stuck in the middle of nowhere but dont want to suicide? Try !CORE
+Want to tell your friend youve found something but theyre offline? Try !MAIL SEND
+Logged in and you have an unread message? Try !MAIL LIST Unread
+Want to secretly use a command? Try using a command inside a PM to yourself!
+_EOF_"
+	as_user "$TIPTEXT"
+fi
+while [ -e /proc/$SM_LOG_PID ]
+do
+	RANDLINE=$(($RANDOM % $(wc -l < "$TIPFILE") + 1))
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/chat $(sed -n ${RANDLINE}p $TIPFILE)\n'"
+	sleep $TIPINTERVAL
+done
 }
 spam_prevention(){
 if [ $SPAMPREVENTION = "Yes" ]
