@@ -88,6 +88,14 @@ SPAMTIMER=10 # The time taken for the message counter to reduce by one after sen
 SPAMALLOWANCE=2 # The number of messages allowed between receiving the warning and being kicked
 SPAMKICKLIMIT=2 # The number of kicks from the server before the player is banned (Set to really high to turn off)
 
+#-------------------------Custom Spawns-------------------------------------------------------------------
+
+CUSTOMSPAWNING=Yes #Determines if the server will use a custom spawning method, utilising player movement
+PIRATENAMES=('Isanth-VI') #The blueprint names of all pirate ships on the server
+LIMITCHANCE=50 #The % chance of pirates spawning per sector change at maximum
+SPAWNLIMIT=9 #The maximum number of pirates inside a wave
+PIRATECOOLTIMER=300 #The minimum time in seconds between each spawn
+
 #------------------------Game settings----------------------------------------------------------------------------
 
 GATECOST=50 #Number of voting points needed to spawn a gate
@@ -159,7 +167,13 @@ CONFIGFILE=(
 "UNIVERSECENTER='2,2,2' #Set the center of the universe boarder"
 "UNIVERSERADIUS=50 #Set the radius of the universe boarder around "
 "TIPINTERVAL=600 #Number of seconds between each tip being shown"
+"CUSTOMSPAWNING=Yes #Determines if the server will use a custom spawning method, utilising player movement"
 "STARTINGRANK=Ensign #The initial rank players recieve when they log in for the first time. Can be edited."
+"PIRATENAMES=('Isanth-VI') #The blueprint names of all pirate ships on the server"
+"LIMITCHANCE=50 #The % chance of pirates spawning per sector change at maximum"
+"SPAWNLIMIT=9 #The maximum number of pirates inside a wave"
+"PIRATECOOLTIMER=300 #The minimum time in seconds between each spawn"
+
 )
 #Simply put, it ensures the bare minimum of variables are in the config file, to allow the daemon to run.
 #If you want to add new config options, add them into create_config aswell as here
@@ -508,6 +522,7 @@ then
 # This was added in to troubleshoot freezes at the request of Schema
 		jstack $PID >> $STARTERPATH/logs/threaddump.log  
 		kill -9 $PID
+		echo $SERVICE has to be forcibly closed. A thread dump has been taken and is saved at $STARTERPATH/logs/threaddump.log and should be sent to schema.
 		screen -wipe
 	fi
 else
@@ -876,6 +891,8 @@ update_playerfile(){
 "SpamWarning: No"
 "SpamKicks: 0"
 "JustLoggedIn: No"
+"PlayerHeat: 0"
+"PirateCooldown: 0"
 )
 	for PLAYER in $PLAYERFILE/*
 	do	
@@ -1009,6 +1026,8 @@ ChatCount: 0
 SpamWarning: No
 SpamKicks: 0
 JustLoggedIn: Yes
+PlayerHeat: 0
+PirateCooldown: 0
 _EOF_"
 		as_user "$WRITEPLAYERFILE"
 	fi
@@ -1438,7 +1457,8 @@ then
 		PLOLDSCCHANGE=$(grep PlayerLocation $PLAYERFILE/$PLAYERSCSOLO | cut -d: -f2 | tr -d ' ')
 #		echo "This was the last object player was in $PLOLDSCOTYPE"
 		as_user "sed -i 's/PlayerLocation: $PLOLDSCCHANGE/PlayerLocation: $PLAYERSCSOLOCHANGE/g' $PLAYERFILE/$PLAYERSCSOLO"
-		log_universeboarder $PLAYERSCSOLOCHANGE $PLAYERSCSOLO
+		universeboarder $PLAYERSCSOLOCHANGE $PLAYERSCSOLO
+		customspawns $PLAYERSCSOLOCHANGE $PLAYERSCSOLO &
 	#----------------------------SHIP---------------------------------------------
 	# If there is a sector change with a ship
 	elif (echo "$SCCHNGTR" | grep Ship >/dev/null)
@@ -1469,7 +1489,8 @@ then
 		else
 			as_user "echo {$SHIPSC} \[$PLAYERSCSHIP\] \($PLAYERSCSHIPCHANGE\) >> $SHIPLOG" 
 		fi
-		log_universeboarder $PLAYERSCSHIPCHANGE $PLAYERSCSHIP
+		universeboarder $PLAYERSCSHIPCHANGE $PLAYERSCSHIP
+		customspawns $PLAYERSCSHIPCHANGE $PLAYERSCSHIP &
 	#----------------------------STATION---------------------------------------------
 	# If there is a sector change with a station
 	elif (echo "$SCCHNGTR" | grep SpaceStation >/dev/null)
@@ -1500,7 +1521,8 @@ then
 		else
 			as_user "echo {$STATIONSC} \[$PLAYERSCSTATION\] \($PLAYERSCSTATIONCHANGE\) >> $STATIONLOG" 
 		fi
-		log_universeboarder $PLAYERSCSTATIONCHANGE $PLAYERSCSTATION
+		universeboarder $PLAYERSCSTATIONCHANGE $PLAYERSCSTATION
+		customspawns $PLAYERSCSTATIONCHANGE $PLAYERSCSTATION &
 	#----------------------------PLANET---------------------------------------------
 	# If there is a sector change with a planet
 	elif (echo "$SCCHNGTR" | grep Planet >/dev/null)
@@ -1531,7 +1553,8 @@ then
 		else
 			as_user "echo {$PLANETSC} \[$PLAYERSCPLANET\] \($PLAYERSCPLANETCHANGE\) >> $PLANETLOG" 
 		fi
-		log_universeboarder $PLAYERSCPLANETCHANGE $PLAYERSCPLANET
+		universeboarder $PLAYERSCPLANETCHANGE $PLAYERSCPLANET
+		customspawns $PLAYERSCPLANETCHANGE $PLAYERSCPLANET &
 	fi
 fi
 }
@@ -1603,6 +1626,8 @@ ChatCount: 0
 SpamWarning: No
 SpamKicks: 0
 JustLoggedIn: Yes
+PlayerHeat: 0
+PirateCooldown: 0
 _EOF_"
 # echo "this is current user $USERNAME"
 as_user "$WRITEPLAYERFILE"
@@ -1616,7 +1641,19 @@ LOGON="$LOGINPLAYER logged on at $(date '+%b_%d_%Y_%H.%M.%S') server time"
 as_user "echo $LOGON >> $GUESTBOOK"
 as_user "echo $LOGINPLAYER >> $ONLINELOG"
 }
-log_universeboarder() { 
+log_initstring() {
+INITPLAYER=$(echo $@ | cut -d\[ -f3 | cut -d\; -f1 | tr -d " ")
+sleep 0.5
+log_playerinfo $INITPLAYER
+if grep -q "JustLoggedIn: Yes" $PLAYERFILE/$INITPLAYER 
+then
+	LOGINMESSAGE="Welcome to the server $INITPLAYER! Type !HELP for chat commands"
+	# A chat message that is displayed whenever a player logs in
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER $LOGINMESSAGE\n'"
+	as_user "sed -i 's/JustLoggedIn: .*/JustLoggedIn: No/g' $PLAYERFILE/$INITPLAYER"
+fi
+}
+universeboarder() { 
 if [ "$UNIVERSEBOARDER" = "YES" ]
 then
 	XULIMIT=$(($(echo $UNIVERSECENTER | cut -d"," -f1) + $UNIVERSERADIUS))
@@ -1663,18 +1700,6 @@ then
 	fi
 fi
 	
-}
-log_initstring() {
-INITPLAYER=$(echo $@ | cut -d\[ -f3 | cut -d\; -f1 | tr -d " ")
-sleep 0.5
-log_playerinfo $INITPLAYER
-if grep -q "JustLoggedIn: Yes" $PLAYERFILE/$INITPLAYER 
-then
-	LOGINMESSAGE="Welcome to the server $INITPLAYER! Type !HELP for chat commands"
-	# A chat message that is displayed whenever a player logs in
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER $LOGINMESSAGE\n'"
-	as_user "sed -i 's/JustLoggedIn: .*/JustLoggedIn: No/g' $PLAYERFILE/$INITPLAYER"
-fi
 }
 randomhelptips(){
 if [ ! -f $TIPFILE ]
@@ -1791,6 +1816,45 @@ fi
 function_exists(){
 declare -f -F $1 > /dev/null 2>&1
 FUNCTIONEXISTS=$?
+}
+customspawns(){
+if [ $CUSTOMSPAWNING = "Yes" ]
+then
+#	Gets the players heat (spawn chance) and time of next allowed spawn
+	PLAYERHEAT=$(grep "PlayerHeat:" $PLAYERFILE/$2 | cut -d" " -f2)
+	PIRATECOOLDOWN=$(grep "PirateCooldown:" $PLAYERFILE/$2 | cut -d" " -f2)
+	NEWHEAT=$(($PLAYERHEAT + 1))
+#	Increments heat by 1
+	as_user "sed -i 's/PlayerHeat: .*/PlayerHeat: $NEWHEAT/g' $PLAYERFILE/$2"
+#	Generates a random number between 0 and 100. If that number is less than $SPAWNCHANCE then a pirate wave is spawned
+	RAND=$(($RANDOM % 100))
+	SPAWNCHANCE=$(($NEWHEAT * $NEWHEAT))
+#	Limits the chances of the spawning (otherwise it would reach 100% chance)
+	if [ $SPAWNCHANCE -gt $LIMITCHANCE ]
+	then
+		SPAWNCHANCE=$LIMITCHANCE
+	fi
+	if [ $RAND -le $SPAWNCHANCE ] && [ $(date +%s) -ge $PIRATECOOLDOWN ]
+	then
+#		Picks a random number of enemies to spawn
+		NUMOFSPAWNS=$((($RANDOM % $SPAWNLIMIT) + 1))
+		for SPAWNNO in $(eval echo {1..$NUMOFSPAWNS})
+		do
+#			Picks a random ship BP to spawn
+			SPAWNSHIP=$(($RANDOM % ${#PIRATENAMES[@]}))
+#			$(date +%s)$RANDOM gives each ship a unique name
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity ${PIRATENAMES[$SPAWNSHIP]} MOB_CUSTOM_PIRATE_$(date +%s)$RANDOM $(echo $1 | tr "," " ") -1 True\n'"
+		done
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $2 $NUMOFSPAWNS pirates have locked onto you and warped in!\n'"
+#		Sets a delay on when the next spawn for that player can be
+		as_user "sed -i 's/PirateCooldown: .*/PirateCooldown: $(($(date +%s) + $PIRATECOOLTIMER))/g' $PLAYERFILE/$2"
+	fi
+#	Reduces the heat by 1 after 180s
+	sleep 180
+	PLAYERHEAT=$(grep "PlayerHeat:" $PLAYERFILE/$2 | cut -d" " -f2)
+	NEWHEAT=$(($PLAYERHEAT - 1))
+	as_user "sed -i 's/PlayerHeat: .*/PlayerHeat: $NEWHEAT/g' $PLAYERFILE/$2"
+fi
 }
 
 #Example Command
@@ -2587,6 +2651,8 @@ function COMMAND_BALANCE(){
 	fi
 }
 function COMMAND_FDEPOSIT(){
+#Allows you to deposit credits into a shared faction bank account
+#USAGE: !FDEPOSIT <Amount>
 	if [ "$#" -ne "2" ]
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !FACTIONDEPOSIT <Amount>\n'"
@@ -2643,6 +2709,8 @@ function COMMAND_FDEPOSIT(){
 	fi
 }
 function COMMAND_FWITHDRAW(){
+#Allows you to withdraw from a shared faction account
+#USAGE: !FWITHDRAW <Amount>
 	if [ "$#" -ne "2" ]
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !FACTIONWITHDRAW <Amount>\n'"
@@ -2679,6 +2747,8 @@ function COMMAND_FWITHDRAW(){
 
 }
 function COMMAND_FBALANCE(){
+#Allows you to see how many credits are in a shared faction account
+#USAGE: !FBALANCE
 	if [ "$#" -ne "1" ]
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BALANCE\n'"
@@ -3173,6 +3243,7 @@ function COMMAND_GIVE(){
 }
 function COMMAND_GIVESET() {
 #Give complete build set of different hulls, ship internals, and decorations
+#USAGE: !GIVESET <Set name> <Set type (only used for normal or hard hull)> - Set names are grey, white, black, red, blue, yellow, green, brown, purple, glass, light, weapon, internal, decoration, terrain, plants
 if [ "$#" -ne "2" ] && [ "$#" -ne "3" ]
 then
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !GIVESET <Set name> <Set type (only used for normal or hard hull)> - Set names are grey, white, black, red, blue, yellow, green, brown, purple, glass, light, weapon, internal, decoration, terrain, plants\n'"
