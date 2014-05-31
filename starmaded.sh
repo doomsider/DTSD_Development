@@ -690,6 +690,7 @@ echo "Please install Java JDK (ie: openjdk-7-jdk) to make dumps"
 fi
 }
 sm_help() {
+echo "updatefiles - Updates all stored files to the latest format, if a change is needed"
 echo "start - Starts the server"
 echo "stop - Stops the server with a server message and countdown approx 2 mins"
 echo "ebrake - Stop the server without a server message approx 30 seconds"
@@ -848,7 +849,7 @@ _EOF_"
 		done
 	done	
 }
-sm_playerfileupdate(){
+update_playerfile(){
 	PLAYERFILETEMPLATE=(
 "Rank: [$STARTINGRANK]"
 "CreditsInBank: 0"
@@ -885,6 +886,27 @@ sm_playerfileupdate(){
 			then
 				echo not found $(echo ${PLAYERFILETEMPLATE[$ARRAY]} | rev | cut -d" " -f2- | rev) in playerfile of $(echo $PLAYER | rev | cut -d"/" -f1 | rev)
 				echo ${PLAYERFILETEMPLATE[$ARRAY]} >> $PLAYER
+			fi
+			let ARRAY++
+		done
+	done
+}
+update_factionfile(){
+	FACTIONFILETEMPLATE=(
+"CreditsInBank: 0"
+"OwnedSectors: "
+"TrespassMessage: "
+"TaxPercent: 0"
+)
+	for FACTION in $FACTIONFILE/*
+	do	
+		ARRAY=0
+		while [ -n "${FACTIONFILETEMPLATE[$ARRAY]+set}" ] 
+		do
+			if ! grep -q "$(echo ${FACTIONFILETEMPLATE[$ARRAY]} | rev | cut -d" " -f2- | rev)" $FACTION
+			then
+				echo not found $(echo ${FACTIONFILETEMPLATE[$ARRAY]} | rev | cut -d" " -f2- | rev) in factionfile of $(echo $FACTION | rev | cut -d"/" -f1 | rev)
+				echo ${FACTIONFILETEMPLATE[$ARRAY]} >> $FACTION
 			fi
 			let ARRAY++
 		done
@@ -3793,11 +3815,13 @@ upgradestar)
 	sm_cronrestore
 	;;
 updatefiles)
-	sm_playerfileupdate
+	update_playerfile
+	update_factionfile
+	check_config
 	;;
 *)
 echo "Doomsider's and Titanmasher's Starmade Daemon (DSD) V.16"
-echo "Usage: starmaded.sh {help|start|stop|ebrake|install|reinstall|restore|status|destroy|restart|upgrade|upgradestar|smdo|smsay|cronstop|cronbackup|cronrestore|backup|backupstar|setplayermax|detect|log|screenlog|check|precheck|ban|dump}"
+echo "Usage: starmaded.sh {help|updatefiles|start|stop|ebrake|install|reinstall|restore|status|destroy|restart|upgrade|upgradestar|smdo|smsay|cronstop|cronbackup|cronrestore|backup|backupstar|setplayermax|detect|log|screenlog|check|precheck|ban|dump}"
 #******************************************************************************
 exit 1
 ;;
