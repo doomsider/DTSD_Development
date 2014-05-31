@@ -113,6 +113,74 @@ STARTINGRANK=Ensign #The initial rank players recieve when they log in for the f
 _EOF_"
 as_user "$CONFIGCREATE"
 }
+check_config(){
+CONFIGFILE=(
+"SERVICE='StarMade.jar' #The name of the .jar file to be run"
+"USERNAME='$USERNAME' #Your login name"
+"BACKUP='/home/$USERNAME/starbackup' #The location where all backups created are saved"
+"BACKUPNAME='Star_Backup_' #Name of the backups"
+"MAXMEMORY=512m #Java setting. Max memory assigned to the server"
+"MINMEMORY=256m #Java setting. Min memory assigned to the server"
+"PORT=4242 #The port the server will run on"
+"SCREENID=smserver #Name of the screen the server will be run on"
+"SCREENLOG=smlog #Name of the screen logging will be run on"
+"LOGGING=YES #Determines if logging will be active (YES/NO))"
+"SERVERKEY='00000000000000000000' #Server key found at starmade-servers.com (used for voting rewards)"
+"RANKCOMMANDS=$STARTERPATH/logs/rankcommands.log #The file that contains all the commands each rank is allowed to use"
+"SHIPLOG=$STARTERPATH/logs/ship.log #The file that contains a record of all the ships with their sector location and the last person who entered it"
+"CHATLOG=$STARTERPATH/logs/chat.log #The file that contains a record of all chat messages sent"
+"BOUNTYLOG=$STARTERPATH/logs/bounty.log #The file that contains all bounty records"
+"GATELOG=$STARTERPATH/logs/gates.log #The file that contains all the jump gates and their details"
+"PLAYERFILE=$STARTERPATH/playerfiles #The directory that contains all the individual player files which store player information"
+"MAILFILE=$STARTERPATH/mail #The directory that contains all player mail"
+"GATEWHITELIST=$STARTERPATH/gatewhitelist #The directory that contains all the individual player files which store who is allowed to access their jump gates"
+"KILLLOG=$STARTERPATH/logs/kill.log #The file with a record of all deaths on the server"
+"ADMINLOG=$STARTERPATH/logs/admin.log #The file with a record of all admin commands issued"
+"GUESTBOOK=$STARTERPATH/logs/guestbook.log #The file with a record of all the logouts on the server"
+"STATIONLOG=$STARTERPATH/logs/station.log #The file that contains all of the stations on the server"
+"PLANETLOG=$STARTERPATH/logs/planet.log #The file that contains all of the planets on the server"
+"SHIPBUYLOG=$STARTERPATH/logs/shipbuy.log #The file that contains all the ships spawned on the server"
+"BANKLOG=$STARTERPATH/logs/bank.log #The file that contains all transactions made on the server"
+"ONLINELOG=$STARTERPATH/logs/online.log #The file that contains the list of currently online players"
+"TIPFILE=$STARTERPATH/logs/tips.txt #The file that contains random tips that will be told to players"
+"FACTIONFILE=$STARTERPATH/factionfiles #The folder that contains individual faction files"
+"SPAMPREVENTION=Yes # Turns on or off the SpamPrevention system (Yes/No)"
+"SPAMLIMIT=5 # The number of messages that can be sent within the $SPAMTIMER before a player will be warned"
+"SPAMTIMER=10 # The time taken for the message counter to reduce by one after sending a chat message"
+"SPAMALLOWANCE=2 # The number of messages allowed between receiving the warning and being kicked"
+"SPAMKICKLIMIT=2 # The number of kicks from the server before the player is banned (Set to really high to turn off)"
+"GATECOST=50 #Number of voting points needed to spawn a gate"
+"GATETEIR[1]='0 15 180'"
+"GATEREFUND=90 #percentage of the cost of the gate that players get back"
+"VOTECHECKDELAY=10 #The time in seconds between each check of starmade-servers.org"
+"CREDITSPERVOTE=1000000 # The number of credits a player gets per voting point."
+"FOLDLIMIT=900 #Due to the way bash square roots numbers, this is the square of the distance limit to be more accurate with distances"
+"UNIVERSEBOARDER=YES #Turn on and off the universe boarder (YES/NO)"
+"UNIVERSECENTER='2,2,2' #Set the center of the universe boarder"
+"UNIVERSERADIUS=50 #Set the radius of the universe boarder around "
+"TIPINTERVAL=600 #Number of seconds between each tip being shown"
+"STARTINGRANK=Ensign #The initial rank players recieve when they log in for the first time. Can be edited."
+)
+#Simply put, it ensures the bare minimum of variables are in the config file, to allow the daemon to run.
+#If you want to add new config options, add them into create_config aswell as here
+	ARRAY=0
+	CONFIGCOMPLETE=1
+	while [ -n "${CONFIGFILE[$ARRAY]+set}" ] 
+	do
+		if ! grep -q -- "$(echo ${CONFIGFILE[$ARRAY]} | cut -d"=" -f1 | tr -d \# | cut -d" " -f1 | cut -d"[" -f1 )" $CONFIGPATH
+		then
+			echo not found config line for variable $(echo ${CONFIGFILE[$ARRAY]} | rev | cut -d"=" -f2- | rev)
+			echo ${CONFIGFILE[$ARRAY]} >> $CONFIGPATH
+			CONFIGCOMPLETE=0
+		fi
+		let ARRAY++
+	done 
+	if [ $CONFIGCOMPLETE -eq 0 ]
+	then
+		echo Settings file needs to be updated.
+		exit
+	fi
+}
 # If the configuration file exists
 if [[ ! -f $CONFIGPATH ]]
 then
@@ -120,6 +188,8 @@ then
 # This creates the config file.  This is the only file alteration that does not use as_user.  Therefore the Daemon should be ran by the intended user
 	create_config
 	exit	
+else
+	check_config
 fi
 sm_start() { 
 # Wipe and dead screens to prevent a false positive for a running Screenid
