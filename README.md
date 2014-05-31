@@ -15,6 +15,8 @@ Add ability to claim and name sectors with player owned bases.  Give residual in
 
 Add sector events like random encounters, missions, and boss fights.  Perhaps look to replace the existing enemy AI altogther for now
 
+Add a faction bank account
+
 Add ability to gather statistics for the server such as players on, size of directory, memory usage, player info, etc 
   to be used for access by other web applications or as a status display for a screen.
 
@@ -32,8 +34,11 @@ Add an online log
 
 
 New commands/functions working on:
-
-
+Added in vote to credits conversion
+Added a method to update all playerfiles with any new data
+Added random ingame messages every 10 minutes
+Added an online log listing all online players
+Updated login methods, to be more logical and less 'hacky'
 
 
 Bug list goes here:
