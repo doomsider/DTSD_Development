@@ -1626,7 +1626,7 @@ then
 fi
 }
 randomhelptips(){
-if [ ! -e $TIPFILE ]
+if [ ! -f $TIPFILE ]
 then
 	TIPTEXT="cat > $TIPFILE <<_EOF_
 !HELP is your fried! If you are stuck on a command, use !HELP <Command>
@@ -2003,28 +2003,17 @@ if [ "$#" -ne "1" ]
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !LISTBOUNTY\n'"
 	else
-		PLAYERFILES=( $PLAYERFILE/* )
-#		echo "Here are playerfiles ${PLAYERFILES[@]}"
-		ARRAY=0
-		while [ -n "${PLAYERFILES[$ARRAY]+set}" ]
+		for BOUNTY in $PLAYERFILE/*
 		do
-			BOUNTY=$(grep "Bounty" ${PLAYERFILES[$ARRAY]} | cut -d" " -f2 )
-			PLAYER=$(echo "${PLAYERFILES[$ARRAY]}" | rev | cut -d"/" -f1 | rev )
-#			echo "Player $ARRAY is $PLAYER"
-#			echo "Bounty $ARRAY is $BOUNTY"
-			if [ "$BOUNTY" -gt "0" ]
+			BOUNTYAMMOUNT=$(grep "Bounty" $BOUNTY | cut -d" " -f2)
+			if [ "$BOUNTYAMMOUNT" -gt "0" ]
 			then
-				BOUNTYLIST+=($PLAYER)
-				BOUNTYLIST+=(":")
-				BOUNTYLIST+=($BOUNTY)
+			BOUNTYNAME=$(echo $BOUNTY | rev | cut -d/ -f1 | rev)
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $BOUNTYNAME - $BOUNTYAMMOUNT credits\n'"
 			fi
-		let ARRAY++
 		done
-#		echo "Final list ${BOUNTYLIST[@]}"
-		BOUNTYDISPLAY=${BOUNTYLIST[@]}
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - The current bounties are $BOUNTYDISPLAY\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - The current bounties are:\n'"
 	fi
-
 #PLAYERFILES=( $(find /home/reed/playerfiles -type f | cut -d\/ -f5) )
 #playerfiles -type f | cut -d\/ -f5	
 
@@ -3022,104 +3011,306 @@ function COMMAND_GIVE(){
 		fi
 	fi
 }
-function COMMAND_GIVENORMAL(){
-#Gives you the normal hull block kit
-#USAGE: !GIVENORMAL
-	if [ "$#" -ne "1" ]
+function COMMAND_GIVESET() {
+#Give complete build set of different hulls, ship internals, and decorations
+if [ "$#" -ne "2" ] && [ "$#" -ne "3" ]
+then
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !GIVESET <Set name> <Set type (only used for normal or hard hull)> - Set names are grey, white, black, red, blue, yellow, green, brown, purple, glass, light, weapon, internal, decoration, terrain, plants\n'"
+else
+	case "$2" in
+	*"glass"*) 
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 63 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 329 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 330 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 368 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 367 10000\n'"
+	;;
+	*"light"*) 
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 65 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 62 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 282 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 283 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 284 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 285 10000\n'"
+	;;
+	*"weapon"*)
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 6 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 16 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 4 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 24 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 39 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 30 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 38 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 32 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 46 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 40 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 54 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 48 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 344 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 345 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 14 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 334 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 335 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 332 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 333 10000\n'"
+	;;
+	*"terrain"*) 
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 64 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 80 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 73 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 74 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 87 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 285 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 138 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 141 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 91 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 107 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 82 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 83 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 139 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 140 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 86 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 274 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 275 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 278 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 279 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 270 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 286 10000\n'"
+	;;
+	*"plant"*) 
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 89 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 90 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 91 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 92 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 93 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 95 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 96 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 97 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 98 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 99 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 100 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 101 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 102 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 103 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 104 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 105 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 106 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 108 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 109 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 84 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 85 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 276 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 277 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 280 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 281 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 287 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 288 10000\n'"
+	;;
+	*"decoration"*) 
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 340 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 336 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 337 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 338 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 339 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 272 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 273 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 254 10000\n'"
+	;;
+	*"internal"*) 
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 289 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 290 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 7 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 56 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 120 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 122 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 2 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 291 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 292 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 331 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 346 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 101 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 1 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 22 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 15 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 8 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 3 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 47 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 121 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 94 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 347 10000\n'"
+	;;
+	*"grey"*) 
+	if [ "$3" = "normal" ]
 	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !GIVENORMAL\n'"
-	else
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 5 10000\n'"
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 293 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 302 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 348 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 357 10000\n'"
+	elif [ "$3" = "hard" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 311 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 320 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 263 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 401 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 402 10000\n'"
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use normal or hard for example GIVESET <color of hull> <normal or hard>\n'"
+	fi
+	;;
+	*"white"*) 
+	if [ "$3" = "normal" ]
+	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 81 10000\n'"
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 301 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 310 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 400 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 392 10000\n'"
+	elif [ "$3" = "hard" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 319 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 328 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 384 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 376 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 271 10000\n'"
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use normal or hard for example GIVESET <color of hull> <normal or hard>\n'"
+	fi
+	;;
+	*"black"*) 
+	if [ "$3" = "normal" ]
+	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 75 10000\n'"
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 296 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 76 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 297 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 77 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 298 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 78 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 299 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 79 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 300 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 70 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 295 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 69 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 294 10000\n'"
-# End of hulls
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 63 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 329 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 289 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 290 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 7 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 88 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 55 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 62 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 282 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 283 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 284 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 285 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 123 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 122 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 2 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 331 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 1 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 3 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 8 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 47 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 6 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 16 10000\n'"
-	fi
-}
-function COMMAND_GIVEHARD(){
-#Gives you the Hardened hull block kit
-#USAGE: !GIVEHARD
-	if [ "$#" -ne "1" ]
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 305 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 393 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 385 10000\n'"
+	elif [ "$3" = "hard" ]
 	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !GIVEHARD\n'"
-	else	
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 263 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 311 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 271 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 319 10000\n'"
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 264 10000\n'"
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 312 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 267 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 315 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 270 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 318 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 268 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 316 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 269 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 317 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 266 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 314 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 321 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 377 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 369 10000\n'"
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use normal or hard for example GIVESET <color of hull> <normal or hard>\n'"
+	fi
+	;;
+	*"red"*) 
+	if [ "$3" = "normal" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 76 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 297 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 306 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 394 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 386 10000\n'"
+	elif [ "$3" = "hard" ]
+	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 265 10000\n'"
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 313 10000\n'"
-# End of hulls
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 63 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 329 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 289 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 290 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 7 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 88 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 55 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 62 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 282 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 283 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 284 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 285 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 123 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 122 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 2 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 331 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 1 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 3 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 8 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 47 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 6 10000\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 16 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 322 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 378 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 370 10000\n'"
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use normal or hard for example GIVESET <color of hull> <normal or hard>\n'"
+	fi
+	;;
+	*"yellow"*) 
+	if [ "$3" = "normal" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 79 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 300 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 309 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 398 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 391 10000\n'"
+	elif [ "$3" = "hard" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 270 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 318 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 327 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 383 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 375 10000\n'"
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use normal or hard for example GIVESET <color of hull> <normal or hard>\n'"
+	fi
+	;;
+	*"green"*) 
+	if [ "$3" = "normal" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 79 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 299 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 308 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 397 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 389 10000\n'"
+	elif [ "$3" = "hard" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 268 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 316 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 325 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 381 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 373 10000\n'"
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use normal or hard for example GIVESET <color of hull> <normal or hard>\n'"
+	fi
+	;;
+	*"brown"*) 
+	if [ "$3" = "normal" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 70 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 295 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 304 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 404 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 403 10000\n'"
+	elif [ "$3" = "hard" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 269 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 317 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 326 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 382 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 374 10000\n'"
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use normal or hard for example GIVESET <color of hull> <normal or hard>\n'"
+	fi
+	;;
+		*"purple"*) 
+	if [ "$3" = "normal" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 69 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 294 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 303 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 395 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 387 10000\n'"
+	elif [ "$3" = "hard" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 266 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 314 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 323 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 379 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 371 10000\n'"
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use normal or hard for example GIVESET <color of hull> <normal or hard>\n'"
+	fi
+	;;
+	*) 
+	;;
+	esac
+fi
+}
+function COMMAND_GIVEMETA(){
+#Gives you, or another player the specified meta item
+#USAGE: !GIVEMETA <Player (optional)> <METAUTEN>
+	if [ "$#" -ne "2" ] && [ "$#" -ne "3" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !GIVE <Playername (optional)> <Metaitem>\n'"
+	else
+		if [ "$2" -eq "$2" ] 2>/dev/null
+		then
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/give_metaitem $1 $2\n'"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You received $2\n'"
+		else
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/give_metaitem $2 $3 $4\n'"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $2 received $3\n'"
+		fi
 	fi
 }
 function COMMAND_CLEAR(){
