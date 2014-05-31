@@ -78,6 +78,7 @@ SHIPBUYLOG=$STARTERPATH/logs/shipbuy.log #The file that contains all the ships s
 BANKLOG=$STARTERPATH/logs/bank.log #The file that contains all transactions made on the server
 ONLINELOG=$STARTERPATH/logs/online.log #The file that contains the list of currently online players
 TIPFILE=$STARTERPATH/logs/tips.txt #The file that contains random tips that will be told to players
+FACTIONFILE=$STARTERPATH/factionfiles #The folder that contains individual faction files
 
 #-------------------------Spam Settings-------------------------------------------------------------------
 
@@ -156,6 +157,11 @@ else
     then
 		echo "No mailfile directory detected creating for logging"
 		as_user "mkdir $MAILFILE"
+    fi
+	if [ ! -d "$FACTIONFILE" ]
+    then
+		echo "No factionfile directory detected creating for logging"
+		as_user "mkdir $FACTIONFILE"
     fi
 # Make sure screen log is shut down just in case it is still running    
     if ps aux | grep -v grep | grep $SCREENLOG >/dev/null
@@ -773,112 +779,45 @@ _EOF_"
 	done	
 }
 sm_playerfileupdate(){
+	PLAYERFILETEMPLATE=(
+"Rank: [$STARTINGRANK]"
+"CreditsInBank: 0"
+"VotingPoints: 0"
+"CurrentVotes: 0"
+"Bounty: 0"
+"WarpTeir: 1"
+"JumpDisabled: 0"
+"CommandConfirm: 0"
+"CurrentIP: 0.0.0.0"
+"CurrentCredits: 0"
+"PlayerFaction: None"
+"PlayerLocation: 2,2,2"
+"PlayerControllingType: Spacesuit"
+"PlayerControllingObject: PlayerCharacter"
+"PlayerLastLogin: 0"
+"PlayerLastCore: 0"
+"PlayerLastFold: 0"
+"PlayerLastUpdate: 0"
+"PlayerLastKilled: None"
+"PlayerKilledBy: None"
+"PlayerLoggedIn: No"
+"ChatCount: 0"
+"SpamWarning: No"
+"SpamKicks: 0"
+"JustLoggedIn: No"
+)
 	for PLAYER in $PLAYERFILE/*
 	do	
-		if ! grep -q "Made on" $PLAYER
-		then
-			as_user "echo Made on $(date) >> $PLAYER"
-		fi
-		if ! grep -q "Rank:" $PLAYER
-		then
-			as_user "echo Rank: [$STARTINGRANK] >> $PLAYER"
-		fi 
-		if ! grep -q "CreditsInBank" $PLAYER
-		then
-			as_user "echo CreditsInBank: 0 >> $PLAYER"
-		fi
-		if ! grep -q "VotingPoints:" $PLAYER
-		then
-			as_user "echo VotingPoints: 0 >> $PLAYER"
-		fi
-		if ! grep -q "CurrentVotes:" $PLAYER
-		then
-			as_user "echo CurrentVotes: 0 >> $PLAYER"
-		fi
-		if ! grep -q "Bounty:" $PLAYER
-		then
-			as_user "echo Bounty: 0 >> $PLAYER"
-		fi
-		if ! grep -q "WarpTeir:" $PLAYER
-		then
-			as_user "echo WarpTeir: 1 >> $PLAYER"
-		fi
-		if ! grep -q "JumpDisabled:" $PLAYER
-		then
-			as_user "echo JumpDisabled: 0 >> $PLAYER"
-		fi
-		if ! grep -q "CommandConfirm:" $PLAYER
-		then
-			as_user "echo CommandConfirm: 0 >> $PLAYER"
-		fi
-		if ! grep -q "CurrentIP:" $PLAYER
-		then
-			as_user "echo CurrentIP: 0.0.0.0 >> $PLAYER"
-		fi
-		if ! grep -q "CurrentCredits:" $PLAYER
-		then
-			as_user "echo CurrentCredits: 0 >> $PLAYER"
-		fi
-		if ! grep -q "PlayerFaction:" $PLAYER
-		then
-			as_user "echo PlayerFaction: None >> $PLAYER"
-		fi
-		if ! grep -q "PlayerLocation:" $PLAYER
-		then
-			as_user "echo PlayerLocation: 2,2,2 >> $PLAYER"
-		fi
-		if ! grep -q "PlayerControllingType:" $PLAYER
-		then
-			as_user "echo PlayerControllingType: PlayerCharacter >> $PLAYER"
-		fi
-		if ! grep -q "PlayerControllingObject:" $PLAYER
-		then
-			as_user "echo PlayerControllingObject: Spacesuit >> $PLAYER"
-		fi
-		if ! grep -q "PlayerLastLogin:" $PLAYER
-		then
-			as_user "echo PlayerLastLogin: 0 >> $PLAYER"
-		fi
-		if ! grep -q "PlayerLastCore:" $PLAYER
-		then
-			as_user "echo PlayerLastCore: 0 >> $PLAYER"
-		fi
-		if ! grep -q "PlayerLastFold:" $PLAYER
-		then
-			as_user "echo PlayerLastFold: 0 >> $PLAYER"
-		fi
-		if ! grep -q "PlayerLastUpdate:" $PLAYER
-		then
-			as_user "echo PlayerLastUpdate: $(date +%s) >> $PLAYER"
-		fi
-		if ! grep -q "PlayerLastKilled:" $PLAYER
-		then
-			as_user "echo PlayerLastKilled: None >> $PLAYER"
-		fi
-		if ! grep -q "PlayerKilledBy:" $PLAYER
-		then
-			as_user "echo PlayerKilledBy: None >> $PLAYER"
-		fi
-		if ! grep -q "PlayerLoggedIn:" $PLAYER
-		then
-			as_user "echo PlayerLoggedIn: Yes >> $PLAYER"
-		fi
-		if ! grep -q "ChatCount:" $PLAYER
-		then
-			as_user "echo ChatCount: 0 >> $PLAYER"
-		fi
-		if ! grep -q "SpamWarning:" $PLAYER
-		then
-			as_user "echo SpamWarning: No >> $PLAYER"
-		fi
-		if ! grep -q "SpamKicks:" $PLAYER
-		then
-			as_user "echo SpamKicks: 0 >> $PLAYER"
-		fi
-		if ! grep -q "JustLoggedIn:" $PLAYER
-		then
-			as_user "echo JustLoggedIn: No >> $PLAYER"
-		fi
+		ARRAY=0
+		while [ -n "${PLAYERFILETEMPLATE[$ARRAY]+set}" ] 
+		do
+			if ! grep -q "$(echo ${PLAYERFILETEMPLATE[$ARRAY]} | rev | cut -d" " -f2- | rev)" $PLAYER
+			then
+				echo not found $(echo ${PLAYERFILETEMPLATE[$ARRAY]} | rev | cut -d" " -f2- | rev) in playerfile of $(echo $PLAYER | rev | cut -d"/" -f1 | rev)
+				echo ${PLAYERFILETEMPLATE[$ARRAY]} >> $PLAYER
+			fi
+			let ARRAY++
+		done
 	done
 }
 log_playerinfo() { 
@@ -913,6 +852,12 @@ then
 	PCREDITS=$(echo ${PLAYERINFO[4]} | cut -d: -f2 | cut -d" " -f2)
 #echo "Credits are $PCREDITS"
 	PFACTION=$(echo ${PLAYERINFO[5]} | cut -d= -f2 | cut -d, -f1)
+	if [ "$PFACTION" -eq "$PFACTION" ] 2>/dev/null
+	then
+		PFACTION=$PFACTION
+	else
+		PFACTION="None"
+	fi
 #echo "Faction id is $PFACTION"
 	PSECTOR=$(echo ${PLAYERINFO[6]} | cut -d\( -f2 | cut -d\) -f1 | tr -d ' ')
 #echo "Player sector is $PSECTOR"
@@ -975,6 +920,20 @@ JustLoggedIn: Yes
 _EOF_"
 		as_user "$WRITEPLAYERFILE"
 	fi
+fi
+}
+log_factionfile(){
+#Checks if a faction file exists, and makes it if not
+if [ ! -e $FACTIONFILE/$1 ]
+then
+	FACFILE="cat > $FACTIONFILE/$1 <<_EOF_
+Made on $(date)
+CreditsInBank: 0
+OwnedSectors: 
+TrespassMessage: You have entered the base of faction ID $1.
+TaxPercent: 0
+_EOF_"
+	as_user "$FACFILE"
 fi
 }
 log_chatlogging() { 
@@ -2407,7 +2366,7 @@ function COMMAND_DEPOSIT(){
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - You must put in a positive number\n'"
 		else 
 # Run playerinfo command to update playerfile and get the current player credits
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Connecting to GALACTICE BANK servers\n'"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Connecting to servers\n'"
 			log_playerinfo $1
 #			as_user "screen -p 0 -S $SCREENID -X stuff $'/player_info $1\n'"
 #			echo "sent message to counsel, now sleeping"
@@ -2466,7 +2425,7 @@ function COMMAND_WITHDRAW(){
 		if ! test "$2" -gt 0 2> /dev/null
 		then
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - You must put in a positive number\n'"
-			else
+		else
 #			echo "Withdraw $2"
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - Connecting to servers\n'"
 			BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d: -f2 | tr -d ' ')
@@ -2533,6 +2492,115 @@ function COMMAND_BALANCE(){
 	else
 	BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d: -f2 | tr -d ' ')
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - You have $BALANCECREDITS credits\n'"
+	fi
+}
+function COMMAND_FDEPOSIT(){
+	if [ "$#" -ne "2" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !FACTIONDEPOSIT <Amount>\n'"
+	else
+		if [ "$2" -gt 0 ] 2>/dev/null
+		then
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Connecting to GALACTICE BANK servers\n'"
+			log_playerinfo $1
+			FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+			if [ ! $FACTION = "None" ]
+			then
+				log_factionfile $FACTION
+				CURRENTTIME=$(date +%s)
+#				echo "Current time $CURRENTTIME"
+				OLDTIME=$(grep PlayerLastUpdate $PLAYERFILE/$1 | cut -d" " -f2- |  tr -d ' ')
+#				echo "Old time from playerfile $OLDTIME"
+				ADJUSTEDTIME=$(( $CURRENTTIME - 10 ))
+#				echo "Adjusted time to remove 10 seconds $ADJUSTEDTIME"
+				if [ "$OLDTIME" -ge "$ADJUSTEDTIME" ]
+				then
+					BALANCECREDITS=$(grep CreditsInBank $FACTIONFILE/$FACTION | cut -d" " -f2- |  tr -d ' ')
+#					echo $BALANCECREDITS
+					CREDITSTOTAL=$(grep CurrentCredits $PLAYERFILE/$1 | cut -d" " -f2- |  tr -d ' ')  
+#					echo "Credits in log $CREDITTOTAL"
+#					echo "Total credits are $CREDITSTOTAL on person and $BALANCECREDITS in bank"
+#					echo "Credits to be deposited $2 "
+					if [ "$CREDITSTOTAL" -ge "$2" ]
+					then 
+#						echo "enough money detected"
+						NEWBALANCE=$(( $2 + $BALANCECREDITS ))
+						NEWCREDITS=$(( $CREDITSTOTAL - $2 ))
+#						echo "new bank balance is $NEWBALANCE"
+						as_user "sed -i 's/CurrentCredits: .*/CurrentCredits: $NEWCREDITS/g' $PLAYERFILE/$1"
+						as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $NEWBALANCE/g' $FACTIONFILE/$FACTION"
+#						as_user "sed -i '4s/.*/CreditsInBank: $NEWBALANCE/g' $PLAYERFILE/$1"
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/give_credits $1 -$2\n'"
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK You successfully deposited $2 credits\n'"
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK Your factions balance is now $NEWBALANCE\n'"
+						as_user "echo '$1 deposited $2 into $FACTION bank account' >> $BANKLOG"
+					else
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK Insufficient money\n'"
+#						echo "not enough money"
+					fi
+				else
+#					echo "Time difference to great, playerfile not updated recently"
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Connecting to GALACTICE BANK servers failed\n'"
+				fi
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You are not in a faction\n'"
+			fi
+		else
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please enter a positive whole number\n'"
+		fi
+	fi
+}
+function COMMAND_FWITHDRAW(){
+	if [ "$#" -ne "2" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !FACTIONWITHDRAW <Amount>\n'"
+	else
+		if [ "$2" -gt 0 ] 2>/dev/null
+		then
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Connecting to servers\n'"
+			log_playerinfo $1
+			FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+			if [ ! $FACTION = "None" ]
+			then
+				log_factionfile $FACTION
+				BALANCECREDITS=$(grep CreditsInBank $FACTIONFILE/$FACTION | cut -d: -f2 | tr -d ' ')
+#				echo "bank balance is $BALANCECREDITS"
+				if [ "$2" -le "$BALANCECREDITS" ]
+				then
+					NEWBALANCE=$(( $BALANCECREDITS - $2 ))
+#					echo "new balance for bank account is $NEWBALANCE"
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/give_credits $1 $2\n'"
+					as_user "sed -i 's/CreditsInBank: $BALANCECREDITS/CreditsInBank: $NEWBALANCE/g' $FACTIONFILE/$FACTION"
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK You successfully withdrawn $2 credits\n'"
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK The factions balance is $NEWBALANCE credits\n'"
+					as_user "echo '$1 witdrew $2 from $FACTION' >> $BANKLOG"
+				else
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - Your faction has insufficent funds\n'"
+				fi
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - You are not in a faction\n'"
+			fi
+		else
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please enter positive whole numbers only.\n'"
+		fi
+	fi
+
+}
+function COMMAND_FBALANCE(){
+	if [ "$#" -ne "1" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BALANCE\n'"
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - Connecting to servers\n'"
+		log_playerinfo $1
+		FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+		if [ ! $FACTION = "None" ]
+		then
+			BALANCECREDITS=$(grep CreditsInBank $FACTIONFILE/$FACTION | cut -d: -f2 | tr -d ' ')
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - Your faction has $BALANCECREDITS credits\n'"
+		else
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - You are not in a faction\n'"
+		fi
 	fi
 }
 function COMMAND_VOTEEXCHANGE(){
