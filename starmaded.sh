@@ -5,8 +5,6 @@
 #  Jstack for a dump has been added into the ebrake command to be used with the detect command to see if server is responsive.
 #  These dumps will be in starterpath/logs/threaddump.log and can be submitted to Schema to troubleshoot server crashes
 #  !!!You must update starmade.cfg for the Daemon to work on your setup!!!
-#test
-#test two
 # This sets the path of the script to the actual script directory.  This is some magic I found on stackoverflow http://stackoverflow.com/questions/4774054/reliable-way-for-a-bash-script-to-get-the-full-path-to-itself	
 DAEMONPATH=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/`basename "${BASH_SOURCE[0]}"`
 CONFIGPATH="$(echo $DAEMONPATH | cut -d"." -f1).cfg"
@@ -205,6 +203,43 @@ then
 else
 	check_config
 fi
+templates(){
+PLAYERFILETEMPLATE=(
+"Rank: [$STARTINGRANK]"
+"CreditsInBank: 0"
+"VotingPoints: 0"
+"CurrentVotes: 0"
+"Bounty: 0"
+"WarpTeir: 1"
+"JumpDisabled: 0"
+"CommandConfirm: 0"
+"CurrentIP: 0.0.0.0"
+"CurrentCredits: 0"
+"PlayerFaction: None"
+"PlayerLocation: 2,2,2"
+"PlayerControllingType: Spacesuit"
+"PlayerControllingObject: PlayerCharacter"
+"PlayerLastLogin: 0"
+"PlayerLastCore: 0"
+"PlayerLastFold: 0"
+"PlayerLastUpdate: 0"
+"PlayerLastKilled: None"
+"PlayerKilledBy: None"
+"PlayerLoggedIn: No"
+"ChatCount: 0"
+"SpamWarning: No"
+"SpamKicks: 0"
+"JustLoggedIn: No"
+"PlayerHeat: 0"
+"PirateCooldown: 0"
+)
+FACTIONFILETEMPLATE=(
+"CreditsInBank: 0"
+"OwnedSectors: "
+"TrespassMessage: "
+"TaxPercent: 0"
+)
+}
 sm_start() { 
 # Wipe and dead screens to prevent a false positive for a running Screenid
 screen -wipe
@@ -865,35 +900,7 @@ _EOF_"
 	done	
 }
 update_playerfile(){
-	PLAYERFILETEMPLATE=(
-"Rank: [$STARTINGRANK]"
-"CreditsInBank: 0"
-"VotingPoints: 0"
-"CurrentVotes: 0"
-"Bounty: 0"
-"WarpTeir: 1"
-"JumpDisabled: 0"
-"CommandConfirm: 0"
-"CurrentIP: 0.0.0.0"
-"CurrentCredits: 0"
-"PlayerFaction: None"
-"PlayerLocation: 2,2,2"
-"PlayerControllingType: Spacesuit"
-"PlayerControllingObject: PlayerCharacter"
-"PlayerLastLogin: 0"
-"PlayerLastCore: 0"
-"PlayerLastFold: 0"
-"PlayerLastUpdate: 0"
-"PlayerLastKilled: None"
-"PlayerKilledBy: None"
-"PlayerLoggedIn: No"
-"ChatCount: 0"
-"SpamWarning: No"
-"SpamKicks: 0"
-"JustLoggedIn: No"
-"PlayerHeat: 0"
-"PirateCooldown: 0"
-)
+templates
 	for PLAYER in $PLAYERFILE/*
 	do	
 		ARRAY=0
@@ -909,12 +916,7 @@ update_playerfile(){
 	done
 }
 update_factionfile(){
-	FACTIONFILETEMPLATE=(
-"CreditsInBank: 0"
-"OwnedSectors: "
-"TrespassMessage: "
-"TaxPercent: 0"
-)
+templates
 	for FACTION in $FACTIONFILE/*
 	do	
 		ARRAY=0
@@ -929,22 +931,38 @@ update_factionfile(){
 		done
 	done
 }
+create_playerfile(){
+templates
+if [[ ! -f $PLAYERFILE/$1 ]]
+then
+#	echo "File not found"
+	as_user "echo Made on $(date) >> $PLAYERFILE/$1"
+	ARRAY=0
+	while [ -n "${PLAYERFILETEMPLATE[$ARRAY]+set}" ] 
+	do
+		as_user "echo ${PLAYERFILETEMPLATE[$ARRAY]} >> $PLAYERFILE/$1"
+		let ARRAY++
+	done
+fi
+}
+create_factionfile(){
+templates
+if [[ ! -f $FACTIONFILE/$1 ]]
+then
+#	echo "File not found"
+	as_user "echo Made on $(date) >> $FACTIONFILE/$1"
+	ARRAY=0
+	while [ -n "${FACTIONFILETEMPLATE[$ARRAY]+set}" ] 
+	do
+		as_user "echo ${FACTIONFILETEMPLATE[$ARRAY]} >> $FACTIONFILE/$1"
+		let ARRAY++
+	done
+fi
+}
 log_playerinfo() { 
 #Checks if the player has a mailbox file
 #echo "$1 is the player name"
-if [ -e $MAILFILE/$1 ]
-then
-	UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/$1 | cut -d" " -f2)
-else
-	echo "UnreadMail: 1 CurrentMailId: 1" >> $MAILFILE/$1
-	echo "MessageID: 0 Unread: Yes Sender: MailBoxPro Time: $(date +%s) Message: Welcome to the mail box $1! Type !MAIL HELP to see how to use the mail box!" >> $MAILFILE/$1
-	UNREADCOUNT=1
-fi
-#checks if the player has any unread mail
-if [ $UNREADCOUNT -gt "0" ]
-then
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have $UNREADCOUNT unread mail. Type !MAIL LIST Unread to see all unread mail.\n'"
-fi
+create_playerfile $1
 as_user "screen -p 0 -S $SCREENID -X stuff $'/player_info $1\n'"
 sleep 2
 if tac $STARTERPATH/logs/output.log | grep -m 1 -A 10 "Name: $1" >/dev/null
@@ -986,66 +1004,19 @@ then
 	fi
 	PLASTUPDATE=$(date +%s)
 #echo "Player file last update is $PLASTUPDATE"
-	if [ -e $PLAYERFILE/$1 ] 
-	then
-#	echo "Player exists, updating player file"
-		as_user "sed -i 's/CurrentIP: .*/CurrentIP: $PIP/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/CurrentCredits: .*/CurrentCredits: $PCREDITS/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/PlayerFaction: .*/PlayerFaction: $PFACTION/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/PlayerLocation: .*/PlayerLocation: $PSECTOR/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/PlayerControllingType: .*/PlayerControllingType: $PCONTROLTYPE/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/PlayerControllingObject: .*/PlayerControllingObject: $PCONTROLOBJECT/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/PlayerLastUpdate: .*/PlayerLastUpdate: $PLASTUPDATE/g' $PLAYERFILE/$1"
-		as_user "sed -i 's/PlayerLoggedIn: .*/PlayerLoggedIn: Yes/g' $PLAYERFILE/$1"
-	else
-#		echo "Player file does not exist, creating"
-		WRITEPLAYERFILE="cat > $PLAYERFILE/$1 <<_EOF_
-Made on $(date)
-Rank: [$STARTINGRANK]
-CreditsInBank: 0
-VotingPoints: 0
-CurrentVotes: 0
-Bounty: 0
-WarpTeir: 1
-JumpDisabled: 0
-CommandConfirm: 0
-CurrentIP: $PIP
-CurrentCredits: $PCREDITS
-PlayerFaction: $PFACTION
-PlayerLocation: $PSECTOR
-PlayerControllingType: $PCONTROLTYPE
-PlayerControllingObject: $PCONTROLOBJECT
-PlayerLastLogin: $PLASTLOGIN
-PlayerLastCore: 0
-PlayerLastFold: 0
-PlayerLastUpdate: $(date +%s)
-PlayerLastKilled: None
-PlayerKilledBy: None
-PlayerLoggedIn: Yes
-ChatCount: 0
-SpamWarning: No
-SpamKicks: 0
-JustLoggedIn: Yes
-PlayerHeat: 0
-PirateCooldown: 0
-_EOF_"
-		as_user "$WRITEPLAYERFILE"
-	fi
+	as_user "sed -i 's/CurrentIP: .*/CurrentIP: $PIP/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/CurrentCredits: .*/CurrentCredits: $PCREDITS/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/PlayerFaction: .*/PlayerFaction: $PFACTION/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/PlayerLocation: .*/PlayerLocation: $PSECTOR/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/PlayerControllingType: .*/PlayerControllingType: $PCONTROLTYPE/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/PlayerControllingObject: .*/PlayerControllingObject: $PCONTROLOBJECT/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/PlayerLastUpdate: .*/PlayerLastUpdate: $PLASTUPDATE/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/PlayerLoggedIn: .*/PlayerLoggedIn: Yes/g' $PLAYERFILE/$1"
 fi
 }
 log_factionfile(){
 #Checks if a faction file exists, and makes it if not
-if [ ! -e $FACTIONFILE/$1 ]
-then
-	FACFILE="cat > $FACTIONFILE/$1 <<_EOF_
-Made on $(date)
-CreditsInBank: 0
-OwnedSectors: 
-TrespassMessage: You have entered the base of faction ID $1.
-TaxPercent: 0
-_EOF_"
-	as_user "$FACFILE"
-fi
+create_factionfile $1
 }
 log_chatlogging() { 
 CHATGREP=$@
@@ -1304,7 +1275,7 @@ then
 #	echo "This is the old ship the player controlling object $SBACTIVEOLDSHIP"
 	IFS=$OLD_IFS
 #	echo "$SHIPBOARDED is the ship being boarded"
-#         echo "$SBACTIVEOLDSHIP is the old ship player was in"
+#   echo "$SBACTIVEOLDSHIP is the old ship player was in"
 # Current last known player sector
 	SHIPBRDSC=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')
 #	echo "This is the sector the boarding is taking place $SHIPBRDSC"
@@ -1317,7 +1288,7 @@ then
 	if [ ! -f $SHIPLOG ] 
 	then
 #		echo "no file"   
-		as_user "echo {$SHIPBOARDED} \[$PLAYEREXITING\] \($SHIPBRDSC\) >> $SHIPLOG" 
+		as_user "echo \{$SHIPBOARDED\} \[$PLAYEREXITING\] \($SHIPBRDSC\) >> $SHIPLOG" 
 	fi
 # If the ship log does exist 
 	if  [ -e $SHIPLOG ]
@@ -1328,14 +1299,14 @@ then
 #          	echo "ship found"
 # Placeholder       
 # Grab the old board as a variable             
-			OLDBOARDER=$(grep {$SHIPBOARDED} $SHIPLOG | cut -d\[ -f2 | cut -d\] -f1) 
+			OLDBOARDER=$(grep "{$SHIPBOARDED}" $SHIPLOG | cut -d\[ -f2 | cut -d\] -f1) 
 #			echo "The oldboarder is $OLDBOARDER"
-			as_user "sed -i 's/{$SHIPBOARDED} \[$OLDBOARDER\]/{$SHIPBOARDED} \[$PLAYEREXITING\]/g' $SHIPLOG"   
+			as_user "sed -i 's/{$SHIPBOARDED} \[$OLDBOARDER\]/{$SHIPBOARDED} \[$PLAYEREXITING\]/g' $SHIPLOG"
 			# If the ship log exists but no record of the ship write it to a new line on the log
 		else 
 #			echo "file found but no ship name, writing"
 # Write the new ship, boarder, and current sector to ship log
-			as_user "echo {$SHIPBOARDED} \[$PLAYEREXITING\] \($SHIPBRDSC\) >> $SHIPLOG"  
+			as_user "echo \{$SHIPBOARDED\} \[$PLAYEREXITING\] \($SHIPBRDSC\) >> $SHIPLOG"  
 # Write the new ship to the player log
 		fi
 	fi
@@ -1376,22 +1347,23 @@ then
 	if [ ! -f $STATIONLOG ] 
 	then
 #		echo "no file"   
-		as_user "echo $STBOARDED \[$PLAYEREXITING\] \($STATIONBRDSC\) >> $STATIONLOG" 
+		as_user "echo \{$STBOARDED\} \[$PLAYEREXITING\] \($STATIONBRDSC\) >> $STATIONLOG" 
 	fi
 # If the station log does exist 
 	if  [ -e $STATIONLOG ]
 	then 
 # Check to see if station is already in station log      
-		if grep "$STBOARDED" $STATIONLOG >/dev/null
+		if grep "{$STBOARDED}" $STATIONLOG >/dev/null
 		then
 # Placeholder
 			STATIONFOUND=1
 #			echo "station already found"
+			as_user "sed -i 's/{$STBOARDED\} .*/$STBOARDED \[$PLAYEREXITING\] \($STATIONBRDSC\)/g' $STATIONLOG"
 # If the station log exists but no record of the ship write it to a new line on the log
 		else 
 #			echo "file found but no station name, writing"
 # Write the new ship, boarder, and current sector to ship log
-			as_user "echo $STBOARDED \[$PLAYEREXITING\] \($STATIONBRDSC\) >> $STATIONLOG"  
+			as_user "echo \{$STBOARDED\} \[$PLAYEREXITING\] \($STATIONBRDSC\) >> $STATIONLOG"  
 		fi
 	fi
 fi
@@ -1419,15 +1391,15 @@ then
 	if [ ! -f $PLANETLOG ] 
 	then
 #		echo "no file"   
-		as_user "echo $PLANETBOARDED \[$PLAYEREXITING\] \($PLANETCOORDS\) >> $PLANETLOG" 
+		as_user "echo \{$PLANETBOARDED\} \[$PLAYEREXITING\] \($PLANETCOORDS\) >> $PLANETLOG" 
 	fi
 	if [ -e $PLANETLOG ]
 	then
-		if grep "$$PLANETBOARDED" $PLANETLOG >/dev/null
+		if grep "{$PLANETBOARDED}" $PLANETLOG >/dev/null
 		then
-			as_user "sed -i 's/$PLANETBOARDED \[.*\] \(.*\)/$PLANETBOARDED \[$PLAYEREXITING\] \($PLANETCOORDS\)/g' $PLANETLOG"
+			as_user "sed -i 's/{$PLANETBOARDED\} \[.*\] \(.*\)/$PLANETBOARDED \[$PLAYEREXITING\] \($PLANETCOORDS\)/g' $PLANETLOG"
 		else
-			as_user "echo $PLANETBOARDED \[$PLAYEREXITING\] \($PLANETCOORDS\) >> $PLANETLOG"
+			as_user "echo \{$PLANETBOARDED\} \[$PLAYEREXITING\] \($PLANETCOORDS\) >> $PLANETLOG"
 		fi
 	fi
 fi
@@ -1596,46 +1568,10 @@ fi
 log_on_login() { 
 LOGINPLAYER=$(echo $@ | cut -d: -f2 | cut -d" " -f2)
 #echo "$LOGINPLAYER logged in"
-if [[ ! -f $PLAYERFILE/$LOGINPLAYER ]]
-then
-#	echo "File not found"
-	WRITEPLAYERFILE="cat > $PLAYERFILE/$LOGINPLAYER <<_EOF_
-Made on $(date)
-Rank: [$STARTINGRANK]
-CreditsInBank: 0
-VotingPoints: 0
-CurrentVotes: 0
-Bounty: 0
-WarpTeir: 1
-JumpDisabled: 0
-CommandConfirm: 0
-CurrentIP: 0.0.0.0
-CurrentCredits: 0
-PlayerFaction: None
-PlayerLocation: 2,2,2
-PlayerControllingType: PlayerCharacter
-PlayerControllingObject: Spacesuit
-PlayerLastLogin: 0
-PlayerLastCore: 0
-PlayerLastFold: 0
-PlayerLastUpdate: $(date +%s)
-PlayerLastKilled: None
-PlayerKilledBy: None
-PlayerLoggedIn: Yes
-ChatCount: 0
-SpamWarning: No
-SpamKicks: 0
-JustLoggedIn: Yes
-PlayerHeat: 0
-PirateCooldown: 0
-_EOF_"
-# echo "this is current user $USERNAME"
-as_user "$WRITEPLAYERFILE"
-else
-	as_user "sed -i 's/JustLoggedIn: .*/JustLoggedIn: Yes/g' $PLAYERFILE/$LOGINPLAYER"
-	as_user "sed -i 's/ChatCount: .*/ChatCount: 0/g' $PLAYERFILE/$LOGINPLAYER"
-	as_user "sed -i 's/SpamWarning: .*/SpamWarning: No/g' $PLAYERFILE/$LOGINPLAYER"
-fi
+create_playerfile $LOGINPLAYER
+as_user "sed -i 's/JustLoggedIn: .*/JustLoggedIn: Yes/g' $PLAYERFILE/$LOGINPLAYER"
+as_user "sed -i 's/ChatCount: .*/ChatCount: 0/g' $PLAYERFILE/$LOGINPLAYER"
+as_user "sed -i 's/SpamWarning: .*/SpamWarning: No/g' $PLAYERFILE/$LOGINPLAYER"
 as_user "sed -i 's/PlayerLastLogin: .*/PlayerLastLogin: $(date)/g' $PLAYERFILE/$LOGINPLAYER"
 LOGON="$LOGINPLAYER logged on at $(date '+%b_%d_%Y_%H.%M.%S') server time"
 as_user "echo $LOGON >> $GUESTBOOK"
@@ -1645,6 +1581,19 @@ log_initstring() {
 INITPLAYER=$(echo $@ | cut -d\[ -f3 | cut -d\; -f1 | tr -d " ")
 sleep 0.5
 log_playerinfo $INITPLAYER
+if [ -e $MAILFILE/$INITPLAYER ]
+then
+	UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/$INITPLAYER | cut -d" " -f2)
+else
+	echo "UnreadMail: 1 CurrentMailId: 1" >> $MAILFILE/$INITPLAYER
+	echo "MessageID: 0 Unread: Yes Sender: MailBoxPro Time: $(date +%s) Message: Welcome to the mail box $INITPLAYER! Type !MAIL HELP to see how to use the mail box!" >> $MAILFILE/$INITPLAYER
+	UNREADCOUNT=1
+fi
+#checks if the player has any unread mail
+if [ $UNREADCOUNT -gt "0" ]
+then
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER You have $UNREADCOUNT unread mail. Type !MAIL LIST Unread to see all unread mail.\n'"
+fi
 if grep -q "JustLoggedIn: Yes" $PLAYERFILE/$INITPLAYER 
 then
 	LOGINMESSAGE="Welcome to the server $INITPLAYER! Type !HELP for chat commands"
