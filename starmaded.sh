@@ -77,14 +77,24 @@ BANKLOG=$STARTERPATH/logs/bank.log #The file that contains all transactions made
 ONLINELOG=$STARTERPATH/logs/online.log #The file that contains the list of currently online players
 TIPFILE=$STARTERPATH/logs/tips.txt #The file that contains random tips that will be told to players
 FACTIONFILE=$STARTERPATH/factionfiles #The folder that contains individual faction files
+BARREDWORDS=$STARTERPATH/logs/barredwords.log #The file that contains all blocked words (for use with SwearPrevention)
 
-#-------------------------Spam Settings-------------------------------------------------------------------
+#-------------------------Chat Settings-------------------------------------------------------------------
 
 SPAMPREVENTION=Yes # Turns on or off the SpamPrevention system (Yes/No)
 SPAMLIMIT=5 # The number of messages that can be sent within the $SPAMTIMER before a player will be warned
 SPAMTIMER=10 # The time taken for the message counter to reduce by one after sending a chat message
 SPAMALLOWANCE=2 # The number of messages allowed between receiving the warning and being kicked
 SPAMKICKLIMIT=2 # The number of kicks from the server before the player is banned (Set to really high to turn off)
+SWEARPREVENTION=Yes # Turns on or off the SwearPrevention system (Yes/No)
+SWEARLIMIT=2 # The number of swear words allowed within $SWEARTIMER seconds
+SWEARTIMER=60 # The time taken for the swear counter to reduce by one after swearing
+SWEARKICKLIMIT=2 # The number of kicks from the server before the player is banned (Set to really high to turn off)
+CAPSPREVENTION=Yes # Turns on or off the CapsPrevention system (Yes/No)
+CAPSLIMIT=5 # The number of messages that can be sent that exceed the $CAPSPERCENT limit
+CAPSTIMER=10 # The time taken for the caps counter to reduce by one after sending a message with too many caps
+CAPSKICKLIMIT=4 # The number of kicks a player can recieve for Caps before theyre banned
+CAPSPERCENT=30 # The percentage of letters in a chat message that can be caps
 
 #-------------------------Custom Spawns-------------------------------------------------------------------
 
@@ -150,6 +160,7 @@ CONFIGFILE=(
 "ONLINELOG=$STARTERPATH/logs/online.log #The file that contains the list of currently online players"
 "TIPFILE=$STARTERPATH/logs/tips.txt #The file that contains random tips that will be told to players"
 "FACTIONFILE=$STARTERPATH/factionfiles #The folder that contains individual faction files"
+"BARREDWORDS=$STARTERPATH/logs/barredwords.log #The file that contains all blocked words (for use with SwearPrevention)"
 "SPAMPREVENTION=Yes # Turns on or off the SpamPrevention system (Yes/No)"
 "SPAMLIMIT=5 # The number of messages that can be sent within the $SPAMTIMER before a player will be warned"
 "SPAMTIMER=10 # The time taken for the message counter to reduce by one after sending a chat message"
@@ -171,7 +182,15 @@ CONFIGFILE=(
 "LIMITCHANCE=50 #The % chance of pirates spawning per sector change at maximum"
 "SPAWNLIMIT=9 #The maximum number of pirates inside a wave"
 "PIRATECOOLTIMER=300 #The minimum time in seconds between each spawn"
-
+"SWEARPREVENTION=Yes # Turns on or off the SwearPrevention system (Yes/No)"
+"SWEARLIMIT=2 # The number of swear words allowed within $SWEARTIMER seconds"
+"SWEARTIMER=60 # The time taken for the swear counter to reduce by one after swearing"
+"SWEARKICKLIMIT=2 # The number of kicks from the server before the player is banned (Set to really high to turn off)"
+"CAPSPREVENTION=Yes # Turns on or off the CapsPrevention system (Yes/No)"
+"CAPSLIMIT=5 # The number of messages that can be sent that exceed the $CAPSPERCENT limit"
+"CAPSTIMER=10 # The time taken for the caps counter to reduce by one after sending a message with too many caps"
+"CAPSKICKLIMIT=4 # The number of kicks a player can recieve for Caps before theyre banned"
+"CAPSPERCENT=30 # The percentage of letters in a chat message that can be caps"
 )
 #Simply put, it ensures the bare minimum of variables are in the config file, to allow the daemon to run.
 #If you want to add new config options, add them into create_config aswell as here
@@ -229,6 +248,10 @@ PLAYERFILETEMPLATE=(
 "ChatCount: 0"
 "SpamWarning: No"
 "SpamKicks: 0"
+"SwearCount: 0"
+"SwearKicks: 0"
+"CapsCount: 0"
+"CapsKicks: 0"
 "JustLoggedIn: No"
 "PlayerHeat: 0"
 "PirateCooldown: 0"
@@ -777,9 +800,10 @@ autovoteretrieval &
 randomhelptips &
 # Checks to see if rankcommands.log exists and if not create a basic one
 echo "Logging started at $(date '+%b_%d_%Y_%H.%M.%S')"
-if [ -e $RANKCOMMANDS ]; then
+if [ -e $RANKCOMMANDS ]
+then
 	RANKCOMMANDSEXIST=1
-	else
+else
     CREATERANK="cat > $RANKCOMMANDS <<_EOF_
 Ensign MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE GIVEHARD GIVENORMAL GIVE TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART
 Lieutenant MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK
@@ -789,7 +813,22 @@ Admiral MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGR
 Admin -ALL-
 _EOF_"
 	as_user "$CREATERANK"
-	fi
+fi
+if [ -e $BARREDWORDS ]
+then
+	BARREDWORDSEXIST=1
+else
+#These are not profanities 'hidden' in the script, these are here to be used to prevent swearing by players
+	CREATEBARRED="cat > $BARREDWORDS <<_EOF_
+fuck
+shit
+crap
+dick
+ffs
+asshole
+_EOF_"
+	as_user "$CREATEBARRED"
+fi
 # Create the Gate whitelist file if it doesnt exist
 	mkdir -p $GATEWHITELIST
 # Create the playerfile folder if it doesnt exist
@@ -1037,7 +1076,6 @@ then
 # Format the whisper mesage for the log
 			WHISPERMESSAGE="$(date '+%b_%d_%Y_%H.%M.%S') - \($PWHISPERER\) whispered to \($PWHISPERED\) '$PLAYERCHAT'"
 			as_user "echo $WHISPERMESSAGE >> $CHATLOG"
-			spam_prevention $PWHISPERED
 # If not a whiper then
 		fi
 		if echo $CHATGREP | grep Server >/dev/null
@@ -1049,8 +1087,7 @@ then
 			PLAYERCHAT=$(echo $CHATGREP | cut -d":" -f2- | tr -d \' | tr -d \")
 # Format the chat message to be written for the chat log
 			CHATMESSAGE="$(date '+%b_%d_%Y_%H.%M.%S') - \($PLAYERCHATID\)'$PLAYERCHAT'"  
-			as_user "echo $CHATMESSAGE >> $CHATLOG"
-			spam_prevention $PLAYERCHATID
+			as_user "echo $CHATMESSAGE >> $CHATLOG"	
 		fi
 	fi
 fi
@@ -1063,15 +1100,15 @@ if [[ ! $CHATGREP == *WARNING* ]] && [[ ! $CHATGREP == *object* ]]
 then
 #	echo $CHATGREP
 	COMMAND=$(echo $CHATGREP | cut -d" " -f4)
+	if [[ "$CHATGREP" =~ "[SERVER][CHAT][WISPER]" ]]
+	then
+		PLAYERCHATID=$(echo $CHATGREP | rev | cut -d"]" -f2 | rev | cut -d"[" -f2)
+	else
+		PLAYERCHATID=$(echo $CHATGREP | cut -d: -f1 | rev | cut -d" " -f1 | rev)
+	fi
 	if [[ "${COMMAND:0:1}" == "!" ]]
 	then
 #	echo $CHATGREP
-		if [[ "$CHATGREP" =~ "[SERVER][CHAT][WISPER]" ]]
-		then
-			PLAYERCHATID=$(echo $CHATGREP | rev | cut -d"]" -f2 | rev | cut -d"[" -f2)
-		else
-			PLAYERCHATID=$(echo $CHATGREP | cut -d: -f1 | rev | cut -d" " -f1 | rev)
-		fi
 #	echo "this is the playerchatid $PLAYERCHATID"
 # 				If the player does not have a log file, make one
 		if [ -e $PLAYERFILE/$PLAYERCHATID ]
@@ -1121,7 +1158,13 @@ then
 #		echo Doesnt exist
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm ${COMMANDANDPARAMETERS[1]} Unrecognized command. Please try again or use !HELP\n'"
 		fi
+	else
+#		If they didnt use a command, then run caps_prevention
+		caps_prevention $PLAYERCHATID $(echo $CHATGREP | cut -d" " -f4- | tr -d " ") &
 	fi
+#	run spam_prevention and swear_prevention if it was a valid chat message
+	spam_prevention $PLAYERCHATID &
+	swear_prevention $PLAYERCHATID $(echo $CHATGREP | cut -d" " -f4-) &
 fi
 }
 log_kill() {
@@ -1176,7 +1219,7 @@ then
 # Write to the kill log who did the killing and who got killed
 		as_user "echo $PLAYERKILLER killed $PLAYERDEAD without predujice >> $KILLLOG"
 		as_user "sed -i 's/PlayerLastKilled: $LASTKILLED/PlayerLastKilled: $PLAYERDEAD/g' $PLAYERFILE/$PLAYERKILLER"
-		as_user "sed -i 's/PlayerKilledBy: .*/PlayerKilledBy $PLAYERKILLER $(date +%s)/g' $PLAYERFILE/$PLAYERDEAD"
+		as_user "sed -i 's/PlayerKilledBy: .*/PlayerKilledBy: $PLAYERKILLER $(date +%s)/g' $PLAYERFILE/$PLAYERDEAD"
 	else
 		as_user "echo $PLAYERDEAD was killed by AI ships >> $KILLLOG"
 	fi
@@ -1572,6 +1615,8 @@ create_playerfile $LOGINPLAYER
 as_user "sed -i 's/JustLoggedIn: .*/JustLoggedIn: Yes/g' $PLAYERFILE/$LOGINPLAYER"
 as_user "sed -i 's/ChatCount: .*/ChatCount: 0/g' $PLAYERFILE/$LOGINPLAYER"
 as_user "sed -i 's/SpamWarning: .*/SpamWarning: No/g' $PLAYERFILE/$LOGINPLAYER"
+as_user "sed -i 's/SwearCount: .*/SwearCount: 0/g' $PLAYERFILE/$LOGINPLAYER"
+as_user "sed -i 's/CapsCount: .*/CapsCount: 0/g' $PLAYERFILE/$LOGINPLAYER"
 as_user "sed -i 's/PlayerLastLogin: .*/PlayerLastLogin: $(date)/g' $PLAYERFILE/$LOGINPLAYER"
 LOGON="$LOGINPLAYER logged on at $(date '+%b_%d_%Y_%H.%M.%S') server time"
 as_user "echo $LOGON >> $GUESTBOOK"
@@ -1719,6 +1764,133 @@ then
 	if [ $CHATCOUNT -gt 0 ]
 	then
 		as_user "sed -i 's/ChatCount: .*/ChatCount: $(($CHATCOUNT - 1))/g' $PLAYERFILE/$1"
+	fi
+fi
+}
+swear_prevention(){
+if [ $SWEARPREVENTION = "Yes" ]
+then
+#	Gets the chat message sent by the player
+	CHATMSG=${@:2}
+	SWEARMSG=0
+#	Counts how many swear words were sent by the player
+	for WORD in $CHATMSG
+	do
+#		i = ignore case w = match entire word
+		if grep -iqw -- $WORD $BARREDWORDS
+		then
+			let SWEARMSG++
+		fi
+	done
+#	If they sent any swear words then
+	if [ $SWEARMSG -gt 0 ]
+	then
+#		Gets the saved SwaerCount (how many swear words recently sent) and SwearKicks (how many kicks for swearing the player has had)
+		SWEARCOUNT=$(grep "SwearCount:" $PLAYERFILE/$1 | cut -d" " -f2)
+		SWEARKICKS=$(grep "SwearKicks:" $PLAYERFILE/$1 | cut -d" " -f2)
+#		If they have sworn less than the limit, then warn them
+		if [ $(($SWEARCOUNT + $SWEARMSG)) -lt $SWEARLIMIT ]
+		then
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please dont swear, it isnt pleasent for other players.\n'"
+			as_user "sed -i 's/SwearCount: .*/SwearCount: $(($SWEARCOUNT + $SWEARMSG))/g' $PLAYERFILE/$1"
+			sleep $SWEARTIMER
+			SWEARCOUNT=$(grep "SwearCount:" $PLAYERFILE/$1 | cut -d" " -f2)
+			if [ $SWEARCOUNT -ge $SWEARCOUNT ]
+			then
+				as_user "sed -i 's/SwearCount: .*/SwearCount: $(($SWEARCOUNT - $SWEARCOUNT))/g' $PLAYERFILE/$1"
+			fi
+#		If they have sworn up to the limit, warn them of a kick
+		elif [ $(($SWEARCOUNT + $SWEARMSG)) -eq $SWEARLIMIT ]
+		then
+			if [ $SWEARKICKS -lt $SWEARKICKLIMIT ]
+			then
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Do not swear. You will be kicked if you do again.\n'"
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Do not swear. You will be BANNED if you do again.\n'"
+			fi
+			as_user "sed -i 's/SwearCount: .*/SwearCount: $(($SWEARCOUNT + $SWEARMSG))/g' $PLAYERFILE/$1"
+			sleep $SWEARTIMER
+			SWEARCOUNT=$(grep "SwearCount:" $PLAYERFILE/$1 | cut -d" " -f2)
+			if [ $SWEARCOUNT -ge $SWEARCOUNT ]
+			then
+				as_user "sed -i 's/SwearCount: .*/SwearCount: $(($SWEARCOUNT - $SWEARCOUNT))/g' $PLAYERFILE/$1"
+			fi
+#		If they have sworn more than the limit then kick/ban them
+		elif [ $(($SWEARCOUNT + $SWEARMSG)) -gt $SWEARLIMIT ]
+		then
+#			If theyve been kicked too much, then ban
+			if [ $SWEARKICKS -lt $SWEARKICKLIMIT ]
+			then
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Swearing will not be tolerated. You have been kicked.\n'"
+				as_user "sed -i 's/SwearKicks: .*/SwearKicks: $(($SWEARKICKS + 1))/g' $PLAYERFILE/$1"
+				sleep 0.1
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Swearing will not be tolerated. You have been BANNED.\n'"
+				sleep 0.1
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/ban_name $1\n'"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
+			fi
+		fi
+	fi
+fi
+}
+caps_prevention(){
+if [ $SWEARPREVENTION = "Yes" ]
+then
+#	Get the message the player sent
+	CHATMSG=${@:2}
+#	The length of the message
+	CHATLENGTH=${#CHATMSG}
+#	The number of caps in the message
+	CAPSAMOUNT=$(echo $CHATMSG | grep -o [A-Z] | wc -l)
+#	If the message is more than 4 letters long (leniency)
+	if [ $CHATLENGTH -gt 4 ]
+	then
+#		If the % of caps is higher than the config limit then
+		if [ $((($CAPSAMOUNT * 100) / $CHATLENGTH)) -gt $CAPSPERCENT ]
+		then
+#			Get the number of excessive caps messages and kicks for caps
+			CAPSCOUNT=$(grep "CapsCount:" $PLAYERFILE/$1 | cut -d" " -f2)
+			CAPSKICK=$(grep "CapsKicks:" $PLAYERFILE/$1 | cut -d" " -f2)
+#			If they havent reached the limit, then warn them.
+			if [ $CAPSCOUNT -lt $CAPSLIMIT ]
+			then
+				as_user "sed -i 's/CapsCount: .*/CapsCount: $(($CAPSCOUNT + 1))/g' $PLAYERFILE/$1"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please dont use caps lock.\n'"
+				sleep $CAPSTIMER
+				CAPSCOUNT=$(grep "CapsCount:" $PLAYERFILE/$1 | cut -d" " -f2)
+				as_user "sed -i 's/CapsCount: .*/CapsCount: $(($CAPSCOUNT - 1))/g' $PLAYERFILE/$1"
+#			If theyre at the limit, then warn them of a kick/ban
+			elif [ $CAPSCOUNT -eq $CAPSLIMIT ]
+			then
+				as_user "sed -i 's/CapsCount: .*/CapsCount: $(($CAPSCOUNT + 1))/g' $PLAYERFILE/$1"
+				if [ $CAPSKICK -lt $CAPSKICKLIMIT ]
+				then
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 If you continue to use caps lock then you will be kicked.\n'"
+				else
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 If you continue to use caps lock then you will be BANNED.\n'"
+				fi
+				sleep $CAPSTIMER
+				CAPSCOUNT=$(grep "CapsCount:" $PLAYERFILE/$1 | cut -d" " -f2)
+				as_user "sed -i 's/CapsCount: .*/CapsCount: $(($CAPSCOUNT - 1))/g' $PLAYERFILE/$1"
+#			If theyre above the limit, then kick/ban them
+			elif [ $CAPSCOUNT -gt $CAPSLIMIT ]
+			then
+				if [ $CAPSKICK -lt $CAPSKICKLIMIT ]
+				then
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have been kicked for excessive caps.\n'"
+					as_user "sed -i 's/CapsKicks: .*/CapsKicks: $(($CAPSKICK + 1))/g' $PLAYERFILE/$1"
+					sleep 0.1
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
+				else
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have been BANNED for excessive caps.\n'"
+					sleep 0.1
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/ban_name $1\n'"
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
+				fi
+			fi
+		fi
 	fi
 fi
 }
