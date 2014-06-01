@@ -305,6 +305,11 @@ else
 		echo "No factionfile directory detected creating for logging"
 		as_user "mkdir $FACTIONFILE"
     fi
+	if [ ! -d "$STARTERPATH/oldlogs" ]
+    then
+		echo "No oldlogs directory detected creating for logging"
+		as_user "mkdir $STARTERPATH/oldlogs"
+    fi
 # Make sure screen log is shut down just in case it is still running    
     if ps aux | grep -v grep | grep $SCREENLOG >/dev/null
     then
@@ -315,7 +320,7 @@ else
 # Check for the output.log and if it is there move it and save it with a time stamp
     if [ -e $STARTERPATH/logs/output.log ] 
     then
-		MOVELOG=$STARTERPATH/logs/output_$(date '+%b_%d_%Y_%H.%M.%S').log
+		MOVELOG=$STARTERPATH/oldlogs/output_$(date '+%b_%d_%Y_%H.%M.%S').log
 		as_user "mv $STARTERPATH/logs/output.log $MOVELOG"
     fi
 # Execute the server in a screen while using tee to move the Standard and Error Output to output.log
@@ -633,7 +638,7 @@ then
 # Check to see if existing screen log exists and if so move and rename it
 		if [ -e $STARTERPATH/logs/screen.log ] 
 		then
-			MOVELOG=$STARTERPATH/logs/screen_$(date '+%b_%d_%Y_%H.%M.%S').log
+			MOVELOG=$STARTERPATH/oldlogs/screen_$(date '+%b_%d_%Y_%H.%M.%S').log
 			as_user "mv $STARTERPATH/logs/screen.log $MOVELOG"
 		fi
 		STARTLOG="$DAEMONPATH log"
