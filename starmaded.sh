@@ -78,6 +78,7 @@ ONLINELOG=$STARTERPATH/logs/online.log #The file that contains the list of curre
 TIPFILE=$STARTERPATH/logs/tips.txt #The file that contains random tips that will be told to players
 FACTIONFILE=$STARTERPATH/factionfiles #The folder that contains individual faction files
 BARREDWORDS=$STARTERPATH/logs/barredwords.log #The file that contains all blocked words (for use with SwearPrevention)
+SECTORFILE=$STARTERPATH/logs/sectordata.log #The file that contains a list of all owned sectors, and their stats
 
 #-------------------------Chat Settings-------------------------------------------------------------------
 
@@ -103,6 +104,11 @@ PIRATENAMES=('Isanth-VI') #The blueprint names of all pirate ships on the server
 LIMITCHANCE=50 #The % chance of pirates spawning per sector change at maximum
 SPAWNLIMIT=9 #The maximum number of pirates inside a wave
 PIRATECOOLTIMER=300 #The minimum time in seconds between each spawn
+
+#-------------------------Sector ownership-------------------------------------------------------------------
+
+BEACONNAME='Beacon' #The blueprint name of the sector beacon station (select a station and use /save)
+SECTORCOST=10000000 #The base cost to buy a sector (0 boardering sectors = 100% cost, 6 boardering sectors = 50% cost)
 
 #------------------------Game settings----------------------------------------------------------------------------
 
@@ -191,6 +197,9 @@ CONFIGFILE=(
 "CAPSTIMER=10 # The time taken for the caps counter to reduce by one after sending a message with too many caps"
 "CAPSKICKLIMIT=4 # The number of kicks a player can recieve for Caps before theyre banned"
 "CAPSPERCENT=30 # The percentage of letters in a chat message that can be caps"
+"SECTORFILE=$STARTERPATH/logs/sectordata.log #The file that contains a list of all owned sectors, and their stats"
+"BEACONNAME='Beacon' #The blueprint name of the sector beacon station (select a station and use /save)"
+"SECTORCOST=10000000 #The base cost to buy a sector (0 boardering sectors = 100% cost, 6 boardering sectors = 50% cost)"
 )
 #Simply put, it ensures the bare minimum of variables are in the config file, to allow the daemon to run.
 #If you want to add new config options, add them into create_config aswell as here
@@ -223,6 +232,22 @@ else
 	check_config
 fi
 templates(){
+RANKFILETEMPLATE=(
+"Ensign MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE GIVEHARD GIVENORMAL GIVE TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART"
+"Lieutenant MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK"
+"Commander MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN"
+"Captain MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN RESTART DESPAWN KILL BANHAMMER TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART"
+"Admiral MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE MAILALL ADMINADDJUMP ADMINDELETEJUMP RANKSET RANKUSER BANHAMMER KILL WHITEADD BANPLAYER UNBAN SHUTDOWN RESTART CREDITS IMPORT EXPORT DESPAWN LOADSHIP GIVE GIVENORMALGIVEHARD KICK GODON GODOFF INVISION INVISIOFF TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART MYDETAILS ADMINCOOLDOWN ADMINREADFILE THREADDUMP GIVESET GIVEMETA"
+"Admin -ALL-"
+)
+BARREDFILETEMPLATE=(
+"fuck"
+"shit"
+"crap"
+"dick"
+"ffs"
+"asshole"
+)
 PLAYERFILETEMPLATE=(
 "Rank: [$STARTINGRANK]"
 "CreditsInBank: 0"
@@ -801,39 +826,11 @@ sm_log() {
 SM_LOG_PID=$$
 # Chat commands are controlled by /playerfile/playername which contains the their rank and 
 # rankcommands.log which has ranks followed by the commands that they are allowed to call
+echo "Logging started at $(date '+%b_%d_%Y_%H.%M.%S')"
 autovoteretrieval &
 randomhelptips &
-# Checks to see if rankcommands.log exists and if not create a basic one
-echo "Logging started at $(date '+%b_%d_%Y_%H.%M.%S')"
-if [ -e $RANKCOMMANDS ]
-then
-	RANKCOMMANDSEXIST=1
-else
-    CREATERANK="cat > $RANKCOMMANDS <<_EOF_
-Ensign MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE GIVEHARD GIVENORMAL GIVE TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART
-Lieutenant MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK
-Commander MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN
-Captain MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN RESTART DESPAWN KILL BANHAMMER TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART
-Admiral MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE MAILALL ADMINADDJUMP ADMINDELETEJUMP RANKSET RANKUSER BANHAMMER KILL WHITEADD BANPLAYER UNBAN SHUTDOWN RESTART CREDITS IMPORT EXPORT DESPAWN LOADSHIP GIVE GIVENORMALGIVEHARD KICK GODON GODOFF INVISION INVISIOFF TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART MYDETAILS ADMINCOOLDOWN ADMINREADFILE THREADDUMP GIVESET GIVEMETA
-Admin -ALL-
-_EOF_"
-	as_user "$CREATERANK"
-fi
-if [ -e $BARREDWORDS ]
-then
-	BARREDWORDSEXIST=1
-else
-#These are not profanities 'hidden' in the script, these are here to be used to prevent swearing by players
-	CREATEBARRED="cat > $BARREDWORDS <<_EOF_
-fuck
-shit
-crap
-dick
-ffs
-asshole
-_EOF_"
-	as_user "$CREATEBARRED"
-fi
+create_ranks
+create_barred
 # Create the Gate whitelist file if it doesnt exist
 	mkdir -p $GATEWHITELIST
 # Create the playerfile folder if it doesnt exist
@@ -999,6 +996,30 @@ then
 	while [ -n "${FACTIONFILETEMPLATE[$ARRAY]+set}" ] 
 	do
 		as_user "echo ${FACTIONFILETEMPLATE[$ARRAY]} >> $FACTIONFILE/$1"
+		let ARRAY++
+	done
+fi
+}
+create_ranks(){
+templates
+if [ ! -e $RANKCOMMANDS ]
+then
+	ARRAY=0
+	while [ -n "${RANKFILETEMPLATE[$ARRAY]+set}" ] 
+	do
+		as_user "echo ${RANKFILETEMPLATE[$ARRAY]} >> $RANKCOMMANDS"
+		let ARRAY++
+	done
+fi
+}
+create_barred(){
+templates
+if [ ! -e $BARREDWORDS ]
+then
+	ARRAY=0
+	while [ -n "${BARREDFILETEMPLATE[$ARRAY]+set}" ] 
+	do
+		as_user "echo ${BARREDFILETEMPLATE[$ARRAY]} >> $BARREDWORDS"
 		let ARRAY++
 	done
 fi
@@ -1582,6 +1603,18 @@ log_destroystring() {
 # Set the destroystr to the current array
 DESTROYSTR=$@
 # If the destroyed entity is a ship then
+if [ ! -f $SHIPLOG ]
+then
+	as_user "touch $SHIPLOG"
+fi
+if [ ! -f $STATIONLOG ]
+then
+	as_user "touch $STATIONLOG"
+fi
+if [ ! -f $GATELOG ]
+then
+	as_user "touch $GATELOG"
+fi
 if echo $DESTROYSTR | grep "SHIP" >/dev/null
 then
 #	echo "Ship destroyed"
@@ -1944,7 +1977,11 @@ declare -f -F $1 > /dev/null 2>&1
 FUNCTIONEXISTS=$?
 }
 customspawns(){
-if [ $CUSTOMSPAWNING = "Yes" ]
+SPAWNX=$(grep "DEFAULT_SPAWN_SECTOR_X =" $STARTERPATH/StarMade/server.cfg | cut -d" " -f3)
+SPAWNY=$(grep "DEFAULT_SPAWN_SECTOR_Y =" $STARTERPATH/StarMade/server.cfg | cut -d" " -f3)
+SPAWNZ=$(grep "DEFAULT_SPAWN_SECTOR_Z =" $STARTERPATH/StarMade/server.cfg | cut -d" " -f3)
+SPAWNCOORDS="$SPAWNX,$SPAWNY,$SPAWNZ"
+if [ $CUSTOMSPAWNING = "Yes" ] && [[ $1 != $SPAWNCOORDS ]]
 then
 #	Gets the players heat (spawn chance) and time of next allowed spawn
 	PLAYERHEAT=$(grep "PlayerHeat:" $PLAYERFILE/$2 | cut -d" " -f2)
@@ -1998,6 +2035,88 @@ fi
 #}
 #Mail Commands
 
+#Sector Ownership Commands
+function COMMAND_BUYSECTOR(){
+#Purchases a sector for a set price, determined by how many sectors adjacent to it you own. The more sectors = cheaper
+#USAGE: !BUYSECTOR
+if [ "$#" -ne 1 ]
+then
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BUYSECTOR\n'"
+else
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Connecting to servers\n'"
+	log_playerinfo $1
+	FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+	if [ ! $FACTION = "None" ]
+	then
+		create_factionfile $FACTION
+		FACTIONCREDITS=$(grep "CreditsInBank:" $FACTIONFILE/$FACTION | cut -d" " -f2)
+		FACTIONSECTORS=$(grep "OwnedSectors:" $FACTIONFILE/$FACTION | cut -d" " -f2-)
+		PLAYERSECTOR=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+		if [ ! -f $SECTORFILE ]
+		then
+			as_user "touch $SECTORFILE"
+		fi
+		if ! grep $PLAYERSECTOR $SECTORFILE
+		then
+			XCOORD=$(echo $PLAYERSECTOR | cut -d"," -f1)
+			YCOORD=$(echo $PLAYERSECTOR | cut -d"," -f2)
+			ZCOORD=$(echo $PLAYERSECTOR | cut -d"," -f3)
+			NEIGHBOURSECTORS=0
+			NEIGHBOURSECTORSLIST=()
+			for XRANGE in $(($XCOORD -1)) $(($XCOORD +1))
+			do
+				if $(echo "$FACTIONSECTORS" | grep -q "$XRANGE,$YCOORD,$ZCOORD")
+				then
+					let NEIGHBOURSECTORS++
+					NEIGHBOURSECTORSLIST+=("$XRANGE,$YCOORD,$ZCOORD")
+				fi
+			done
+			for YRANGE in $(($YCOORD -1)) $(($YCOORD +1))
+			do
+				if $(echo "$FACTIONSECTORS" | grep -q "$XCOORD,$YRANGE,$ZCOORD")
+				then
+					let NEIGHBOURSECTORS++
+					NEIGHBOURSECTORSLIST+=("$XCOORD,$YRANGE,$ZCOORD")
+				fi
+			done
+			for ZRANGE in $(($ZCOORD -1)) $(($ZCOORD +1))
+			do
+				if $(echo "$FACTIONSECTORS" | grep -q "$XCOORD,$YCOORD,$ZRANGE")
+				then
+					let NEIGHBOURSECTORS++
+					NEIGHBOURSECTORSLIST+=("$XCOORD,$YCOORD,$ZRANGE")
+				fi
+			done
+			THISSECTORCOST=$(echo "$SECTORCOST/(($NEIGHBOURSECTORS/6)+1)" | bc -l | cut -d"." -f1)
+			if [ $FACTIONCREDITS -ge $THISSECTORCOST ]
+			then
+				FACTIONCREDITS=$(($FACTIONCREDITS - $THISSECTORCOST))
+				BEACONID="Sector_Claim_Unit_F:${FACTION}_ID:$RANDOM"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Due to the $NEIGHBOURSECTORS adjacent sectors you own, this sector costs $THISSECTORCOST credits\n'"
+				as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
+				as_user "sed -i 's/OwnedSectors: .*/OwnedSectors: $FACTIONSECTORS $PLAYERSECTOR/g' $FACTIONFILE/$FACTION"
+				as_user "echo ' $PLAYERSECTOR $FACTION $NEIGHBOURSECTORS $BEACONID' >> $SECTORFILE"
+				for SECTOR in "${NEIGHBOURSECTORSLIST[@]}"
+				do
+					SECTORDATA=($(grep $SECTOR $SECTORFILE))
+					SECTORDATA[2]=$((${SECTORDATA[2]} + 1))
+					as_user "sed -i 's/ $SECTOR .*/ $(echo ${SECTORDATA[@]})/g' $SECTORFILE"
+				done
+				sleep 0.2
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - A sectoral claim unit has been deployed to your sector. If this is estroyed, then the sector claim is lost!\n'"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity $BEACONNAME $BEACONID $(echo $PLAYERSECTOR | tr "," " ") 0 False \n'"
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Your faction cannot afford this sector. it would cost $THISSECTORCOST\n'"
+			fi
+		else
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - This sector is already owned!\n'"
+		fi
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You are not in a registered faction.\n'"
+	fi
+fi
+}
+
 #Mail Commands
 function COMMAND_MAIL(){
 #A fully functional mail box system. You can send, read, view by unread and delete messages
@@ -2005,7 +2124,7 @@ function COMMAND_MAIL(){
 	# Checks if the player entered LIST as the second parameter
 	if [ "$#" -lt "2" ]
 	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !MAIL LIST <All/Unread>\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !MAIL HELP for a help list\n'"
 	else	
 		if [ $(echo $2 | tr [a-z] [A-Z]) = "LIST" ]
 		then
@@ -2536,7 +2655,9 @@ function COMMAND_UPGRADEJUMP(){
 #						Alters the total cost of the gate so far
 						let "TOTALCOST=${GATEINFO[9]}+$(echo ${GATETEIR[$((${GATEINFO[5]}+1))]} | cut -d" " -f1)"
 #						edits the level of the gate
-						as_user "sed -i 's/Name: ${GATEINFO[1]} .*/$(echo ${GATEINFO[@]:0:5}) $((${GATEINFO[5]}+1)) $(echo ${GATEINFO[@]:6:3}) $TOTALCOST $(echo ${GATEINFO[@]:10})/g' $GATELOG"
+						GATEINFO[5]=$((${GATEINFO[5]} + 1))
+						GATEINFO[9]=$TOTALCOST
+						as_user "sed -i 's/Name: ${GATEINFO[1]} .*/$(echo ${GATEINFO[@]})/g' $GATELOG"
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 The gate was sucessfully upgraded to level $((${GATEINFO[5]}+1))\n'"
 					else
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You dont have enough voting points to upgrade the gate! You need $(echo ${GATETEIR[$((${GATEINFO[7]}+1))]} | cut -d" " -f1) but only have $VOTINGPOINTS \n'"
