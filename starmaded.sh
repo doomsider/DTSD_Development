@@ -109,6 +109,9 @@ PIRATECOOLTIMER=300 #The minimum time in seconds between each spawn
 
 BEACONNAME='Beacon' #The blueprint name of the sector beacon station (select a station and use /save)
 SECTORCOST=10000000 #The base cost to buy a sector (0 boardering sectors = 100% cost, 6 boardering sectors = 50% cost)
+DAILYFEES=700000 #The amount of money a player has to pay each day to maintain the sectors (intentionally larger than baseincome)
+BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering sectors = baseincome, 6 boardering sectors = baseincome x 4)
+BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store
 
 #------------------------Game settings----------------------------------------------------------------------------
 
@@ -200,6 +203,9 @@ CONFIGFILE=(
 "SECTORFILE=$STARTERPATH/logs/sectordata.log #The file that contains a list of all owned sectors, and their stats"
 "BEACONNAME='Beacon' #The blueprint name of the sector beacon station (select a station and use /save)"
 "SECTORCOST=10000000 #The base cost to buy a sector (0 boardering sectors = 100% cost, 6 boardering sectors = 50% cost)"
+"BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering sectors = baseincome, 6 boardering sectors = baseincome x 4)"
+"BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store"
+"DAILYFEES=700000 #The amount of money a player has to pay each day to maintain the sectors (intentionally larger than baseincome)"
 )
 #Simply put, it ensures the bare minimum of variables are in the config file, to allow the daemon to run.
 #If you want to add new config options, add them into create_config aswell as here
@@ -829,6 +835,7 @@ SM_LOG_PID=$$
 echo "Logging started at $(date '+%b_%d_%Y_%H.%M.%S')"
 autovoteretrieval &
 randomhelptips &
+sectoraccounting &
 create_ranks
 create_barred
 # Create the Gate whitelist file if it doesnt exist
@@ -1644,6 +1651,18 @@ then
 	as_user "sed -i '$REMOVEDESTATION' '$STATIONLOG'"
 	REMOVEDGATE="/LinkedEntity: ${DESSTATION}/d"
 	as_user "sed -i '$REMOVEDGATE' '$GATELOG'"
+	if grep -q "${DESSTATION}" $SECTORFILE
+	then
+		FACTION=$(grep "${DESSTATION}" $SECTORFILE | cut -d" " -f3)
+		SECTOR=$(grep "${DESSTATION}" $SECTORFILE | cut -d" " -f2)
+		as_user "sed -i '/.* ${DESSTATION}/d' $SECTORFILE"
+		as_user "sed -i 's/ $SECTOR//g' $FACTIONFILE/$FACTION"
+		UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTION | cut -d" " -f2)
+		as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTION"
+		CURRENTMAILID=$(grep "CurrentMailId:" $MAILFILE/FAC@$FACTION | cut -d" " -f4)
+		echo "MessageID: $CURRENTMAILID Unread: Yes Sender: GALACTICEBANK Time: $(date +%s) Message: Your beacon in sector $SECTOR has been destroyed by hostile forces." >> $MAILFILE/FAC@$FACTION
+		as_user "sed -i 's/CurrentMailId: $CURRENTMAILID/CurrentMailId: $(($CURRENTMAILID + 1))/g' $MAILFILE/FAC@$FACTION" 
+	fi
 fi
 }
 log_on_login() { 
@@ -1672,10 +1691,23 @@ else
 	echo "MessageID: 0 Unread: Yes Sender: MailBoxPro Time: $(date +%s) Message: Welcome to the mail box $INITPLAYER! Type !MAIL HELP to see how to use the mail box!" >> $MAILFILE/$INITPLAYER
 	UNREADCOUNT=1
 fi
+FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$INITPLAYER | cut -d" " -f2)
+if [ -e $MAILFILE/FAC@$FACTION ]
+then
+	FACUNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTION | cut -d" " -f2)
+else
+	echo "UnreadMail: 1 CurrentMailId: 1" >> $MAILFILE/FAC@$FACTION
+	echo "MessageID: 0 Unread: Yes Sender: MailBoxPro Time: $(date +%s) Message: Welcome to the mail box faction $FACTION! Type !FMAIL HELP to see how to use the mail box!" >> $MAILFILE/FAC@$FACTION
+	FACUNREADCOUNT=1
+fi
 #checks if the player has any unread mail
 if [ $UNREADCOUNT -gt "0" ]
 then
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER You have $UNREADCOUNT unread mail. Type !MAIL LIST Unread to see all unread mail.\n'"
+fi
+if [ $FACUNREADCOUNT -gt "0" ]
+then
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER Your faction has $FACUNREADCOUNT unread mail. Type !FMAIL LIST Unread to see all unread mail.\n'"
 fi
 if grep -q "JustLoggedIn: Yes" $PLAYERFILE/$INITPLAYER 
 then
@@ -2019,6 +2051,47 @@ then
 	as_user "sed -i 's/PlayerHeat: .*/PlayerHeat: $NEWHEAT/g' $PLAYERFILE/$2"
 fi
 }
+sectoraccounting(){
+while [ -e /proc/$SM_LOG_PID ]
+do 
+	if [ -f $SECTORFILE ]
+	then
+#		Waits untill midnight before continuing
+		while [ $(date +%H:%M) != "00:00" ]
+		do 
+			sleep 1
+		done
+#		Loops over every line in the file i.e. every owned sector
+		while read SECTOR
+		do
+			SECTOR=($SECTOR)
+#			Works out the income value for that sector based on the number of adjacent sectors
+			INCOME=$(echo "$BASEINCOME * (sqrt(9*${SECTOR[2]} + 9)-2)" | bc -l | cut -d"." -f1)
+#			Probably a bit overcomplicated, and not needed, but this basically cuts the income value down to 2SF so values are more rounded
+#			Removes all but the first 2 characters, then prints the character 0 as many times as characters it cut off and then joins that back together
+			INCOME=$(echo ${INCOME:0:-$((${#INCOME} -2))}$(printf "%0.s0" $(seq 1 $((${#INCOME} -2)))))
+#			Enforces the limit on the beacon
+			if [ $((${SECTOR[3]}+INCOME)) -le $BEACONCREDITLIMIT ]
+			then
+				SECTOR[3]=$((${SECTOR[3]}+INCOME))
+			else
+				SECTOR[3]=$BEACONCREDITLIMIT
+				FACTION=${SECTOR[1]}
+				UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTION | cut -d" " -f2)
+				as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTION"
+				CURRENTMAILID=$(grep "CurrentMailId:" $MAILFILE/FAC@$FACTION | cut -d" " -f4)
+				echo "MessageID: $CURRENTMAILID Unread: Yes Sender: GALACTICEBANK Time: $(date +%s) Message: Your beacon in sector ${SECTOR[0]} is full of credits! All profits from here are now being lost!" >> $MAILFILE/FAC@$FACTION
+				as_user "sed -i 's/CurrentMailId: $CURRENTMAILID/CurrentMailId: $(($CURRENTMAILID + 1))/g' $MAILFILE/FAC@$FACTION" 
+			fi
+			as_user "sed -i 's/ ${SECTOR[0]} .*/ $(echo ${SECTOR[@]})/g' $SECTORFILE"
+#		Tells the while loop what file to read
+		done < $SECTORFILE
+#	Ensures it only runs once per day
+	sleep 60
+	fi
+done
+	
+}
 
 #Example Command
 #In the command system, $1 = Playername , $2 = parameter 1 , $3 = parameter 2 , ect
@@ -2056,7 +2129,7 @@ else
 		then
 			as_user "touch $SECTORFILE"
 		fi
-		if ! grep $PLAYERSECTOR $SECTORFILE
+		if ! grep " $PLAYERSECTOR " $SECTORFILE
 		then
 			XCOORD=$(echo $PLAYERSECTOR | cut -d"," -f1)
 			YCOORD=$(echo $PLAYERSECTOR | cut -d"," -f2)
@@ -2091,11 +2164,11 @@ else
 			if [ $FACTIONCREDITS -ge $THISSECTORCOST ]
 			then
 				FACTIONCREDITS=$(($FACTIONCREDITS - $THISSECTORCOST))
-				BEACONID="Sector_Claim_Unit_F:${FACTION}_ID:$RANDOM"
+				BEACONID="Sector_Claim_Unit_F:${FACTION}_ID:$(date +%s)$RANDOM"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Due to the $NEIGHBOURSECTORS adjacent sectors you own, this sector costs $THISSECTORCOST credits\n'"
 				as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
 				as_user "sed -i 's/OwnedSectors: .*/OwnedSectors: $FACTIONSECTORS $PLAYERSECTOR/g' $FACTIONFILE/$FACTION"
-				as_user "echo ' $PLAYERSECTOR $FACTION $NEIGHBOURSECTORS $BEACONID' >> $SECTORFILE"
+				echo " $PLAYERSECTOR $FACTION $NEIGHBOURSECTORS 0 $BEACONID" >> $SECTORFILE
 				for SECTOR in "${NEIGHBOURSECTORSLIST[@]}"
 				do
 					SECTORDATA=($(grep $SECTOR $SECTORFILE))
@@ -2105,6 +2178,11 @@ else
 				sleep 0.2
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - A sectoral claim unit has been deployed to your sector. If this is estroyed, then the sector claim is lost!\n'"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity $BEACONNAME $BEACONID $(echo $PLAYERSECTOR | tr "," " ") 0 False \n'"
+				UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTION | cut -d" " -f2)
+				as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTION"
+				CURRENTMAILID=$(grep "CurrentMailId:" $MAILFILE/FAC@$FACTION | cut -d" " -f4)
+				echo "MessageID: $CURRENTMAILID Unread: Yes Sender: GALACTICEBANK Time: $(date +%s) Message: Your faction has made the successful purchase of sector $PLAYERSECTOR" >> $MAILFILE/FAC@$FACTION
+				as_user "sed -i 's/CurrentMailId: $CURRENTMAILID/CurrentMailId: $(($CURRENTMAILID + 1))/g' $MAILFILE/FAC@$FACTION" 
 			else
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Your faction cannot afford this sector. it would cost $THISSECTORCOST\n'"
 			fi
@@ -2167,11 +2245,11 @@ function COMMAND_MAIL(){
 #								If the user entered all as an otion, it tells the user the mail info
 								if [ $(echo $3 | tr [a-z] [A-Z]) = "ALL" ]
 								then
-									as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Mail #$MAILID: Message from $SENDER at $TIME on $DATE\n'"
+									as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 MailID $MAILID: Message from $SENDER at $TIME on $DATE\n'"
 #								if the user entered unread as a parameter then only tell the user the mail info if $UNREAD = Yes
 								elif [ $(echo $3 | tr [a-z] [A-Z]) = "UNREAD" ] && [ $UNREAD = "Yes" ]
 								then
-									as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Mail #$MAILID: Message from $SENDER at $TIME on $DATE\n'"
+									as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 MailID $MAILID: Message from $SENDER at $TIME on $DATE\n'"
 								fi
 							fi
 						done
@@ -2291,6 +2369,167 @@ function COMMAND_MAIL(){
 			fi
 		else
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !MAIL HELP for all mail commands\n'"
+		fi
+	fi
+}
+function COMMAND_FMAIL(){
+#A fully functional mail box system. You can read, view by unread and delete messages from the server system. Based around factions
+#For indepth help, please use !FMAIL HELP
+	# Checks if the player entered LIST as the second parameter
+	if [ "$#" -lt "2" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !FMAIL HELP for a help list\n'"
+	else
+		if [ $(echo $2 | tr [a-z] [A-Z]) = "LIST" ]
+		then
+			if [ "$#" -ne "3" ]
+			then
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !FMAIL LIST <All/Unread>\n'"
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Validating mailbox access code. Please wait...\n'"
+				log_playerinfo $1
+				FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+#				Checks if the player has a mail file. If not, make it with one new message from MailBoxPro welcoming the player to the mail box
+				if [ ! -e $MAILFILE/FAC@$FACTION ]
+				then
+					echo "UnreadMail: 1 CurrentMailId: 1" >> $MAILFILE/FAC@$FACTION
+					echo "MessageID: 0 Unread: Yes Sender: MailBoxPro Time: $(date +%s) Message: Welcome to the mail box faction $FACTION! Type !FMAIL HELP to see how to use the mail box!" >> $MAILFILE/FAC@$FACTION
+				fi
+#				Makes sure the user entered unread or all as the 3rd parameter
+				if [ $(echo $3 | tr [a-z] [A-Z]) = "UNREAD" ] || [ $(echo $3 | tr [a-z] [A-Z]) = "ALL" ]
+				then
+#					Checks if the player has mail (the first line of the mailbox is an info system)
+					if [ $(cat $MAILFILE/FAC@$FACTION | wc -l) = 1 ]
+					then
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have no mail\n'"
+#					Checks if they have unread mail or not if the user entered unread as an option
+					elif ! grep -q "Unread: Yes" $MAILFILE/FAC@$FACTION && [ $(echo $3 | tr [a-z] [A-Z]) = "UNREAD" ]
+					then
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have no unread mail\n'"
+					else
+						OLDIFS=$IFS
+						IFS=$'\n'
+#						Looks at every line in the player mail box in reverse order
+						for MAIL in $(tac $MAILFILE/FAC@$FACTION)
+						do
+#							Makes sure it isnt looking at the info line at the top of the file
+							if [[ ! $MAIL =~ "CurrentMailId:" ]]
+							then
+#								Decodes the line into date, time, sender, mailID and unread status
+								DATE=$( date -d @$(echo $MAIL | cut -d" " -f8) +"%a %d %b %Y")
+								TIME=$( date -d @$(echo $MAIL | cut -d" " -f8) +"%T")
+								SENDER=$(echo $MAIL | cut -d" " -f6)
+								UNREAD=$(echo $MAIL | cut -d" " -f4)
+								MAILID=$(echo $MAIL | cut -d" " -f2)
+#								If the user entered all as an otion, it tells the user the mail info
+								if [ $(echo $3 | tr [a-z] [A-Z]) = "ALL" ]
+								then
+									as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 MailID $MAILID: Message from $SENDER at $TIME on $DATE\n'"
+#								if the user entered unread as a parameter then only tell the user the mail info if $UNREAD = Yes
+								elif [ $(echo $3 | tr [a-z] [A-Z]) = "UNREAD" ] && [ $UNREAD = "Yes" ]
+								then
+									as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 MailID $MAILID: Message from $SENDER at $TIME on $DATE\n'"
+								fi
+							fi
+						done
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Type !FMAIL READ <MailID> to read your factions messages\n'"
+						IFS=$OLDIFS
+					fi
+				else
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !FMAIL LIST <All/Unread>\n'"
+				fi
+			fi
+#		Checks if the player entered delete as the 2nd parameter
+		elif [ $(echo $2 | tr [a-z] [A-Z]) = "DELETE" ]
+		then
+			if [ "$#" -ne "3" ]
+			then
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !FMAIL DELETE <MessageID>\n'"
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Validating mailbox access code. Please wait...\n'"
+				log_playerinfo $1
+				FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+#				Checks if the player has a mail file. If not, make it with one new message from MailBoxPro welcoming the player to the mail box
+				if [ ! -e $MAILFILE/FAC@$FACTION ]
+				then
+					echo "UnreadMail: 1 CurrentMailId: 1" >> $MAILFILE/FAC@$FACTION
+					echo "MessageID: 0 Unread: Yes Sender: MailBoxPro Time: $(date +%s) Message: Welcome to the mail box $1! Type !FMAIL HELP to see how to use the mail box!" >> $MAILFILE/FAC@$FACTION
+				fi
+#				checks if the specified mailID exists in the players mailfile
+				if grep -q "MessageID: $3" $MAILFILE/FAC@$FACTION
+				then
+#					Decodes all needed data from the mailfile
+					MAILDATA=$(grep "MessageID: $3" $MAILFILE/FAC@$FACTION)
+					UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTION | cut -d" " -f2)
+					DATE=$( date -d @$(echo $MAILDATA | cut -d" " -f8) +"%a %d %b %Y")
+					TIME=$( date -d @$(echo $MAILDATA | cut -d" " -f8) +"%T")
+					MESSAGE=$(echo $MAILDATA | cut -d" " -f10-)
+					SENDER=$(echo $MAILDATA | cut -d" " -f6)
+					UNREAD=$(echo $MAILDATA | cut -d" " -f4)
+					as_user "sed -i '/MessageID: $3/d' $MAILFILE/FAC@$FACTION"
+#					Reduces the unreadcount by 1 if the mail deleted was unread
+					if [ $UNREAD = "Yes" ]
+					then
+						as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT - 1))/g' $MAILFILE/FAC@$FACTION"
+					fi
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Message from $SENDER, $DATE $TIME has been deleted.\n'"
+				else
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 That message ID does not exist.\n'"
+				fi
+			fi
+#		Checks if the player entered read as the 2nd parameter
+		elif [ $(echo $2 | tr [a-z] [A-Z]) = "READ" ]
+		then
+			if [ "$#" -ne "3" ]
+			then
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !FMAIL READ <MailID>\n'"
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Validating mailbox access code. Please wait...\n'"
+				log_playerinfo $1
+				FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+#				Checks if the player has a mail file. If not, make it with one new message from MailBoxPro welcoming the player to the mail box
+				if [ ! -e $MAILFILE/FAC@$FACTION ]
+				then
+					echo "UnreadMail: 1 CurrentMailId: 1" >> $MAILFILE/FAC@$FACTION
+					echo "MessageID: 0 Unread: Yes Sender: MailBoxPro Time: $(date +%s) Message: Welcome to the mail box $1! Type !FMAIL HELP to see how to use the mail box!" >> $MAILFILE/FAC@$FACTION
+				fi
+#				checks if the specified mailID exists in the players mailfile
+				if grep -q "MessageID: $3" $MAILFILE/FAC@$FACTION
+				then
+#					Decodes all needed data from the mailfile
+					MAILDATA=$(grep "MessageID: $3" $MAILFILE/FAC@$FACTION)
+					UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTION | cut -d" " -f2)
+					DATE=$( date -d @$(echo $MAILDATA | cut -d" " -f8) +"%a %d %b %Y")
+					TIME=$( date -d @$(echo $MAILDATA | cut -d" " -f8) +"%T")
+					MESSAGE=$(echo $MAILDATA | cut -d" " -f10-)
+					SENDER=$(echo $MAILDATA | cut -d" " -f6)
+#					Tells the user the sender, date, time and message with the specified mailID
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Message from $SENDER, $DATE $TIME: $MESSAGE\n'"
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Type !FMAIL DELETE $3 when you want to delete this message.\n'"
+#					Sets the message's Unread field to no and reduces the unread count by 1 if the mail was unread
+					if grep -q "Unread: Yes" $MAILFILE/FAC@$FACTION
+					then
+						as_user "sed -i 's/MessageID: $3 Unread: Yes/MessageID: $3 Unread: No/g' $MAILFILE/FAC@$FACTION"
+						as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT - 1))/g' $MAILFILE/FAC@$FACTION"
+					fi
+				else
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 That message ID does not exist.\n'"
+				fi
+			fi
+		elif [ $(echo $2 | tr [a-z] [A-Z]) = "HELP" ]
+		then
+			if [ "$#" -ne "2" ]
+			then
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !FMAIL HELP\n'"
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 To delete mail, type !FMAIL DELETE <MailID>\n'"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 To see mail in your faction inbox, type !FMAIL LIST <Unread/All>\n'"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 To read mail, type !FMAIL READ <MailID>\n'"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Command options:\n'"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Welcome to the integrated MailBoxPro help service.\n'"
+			fi
+		else
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !FMAIL HELP for all mail commands\n'"
 		fi
 	fi
 }
