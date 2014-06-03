@@ -110,6 +110,7 @@ PIRATECOOLTIMER=300 #The minimum time in seconds between each spawn
 BEACONNAME='Beacon' #The blueprint name of the sector beacon station (select a station and use /save)
 SECTORCOST=10000000 #The base cost to buy a sector (0 boardering sectors = 100% cost, 6 boardering sectors = 50% cost)
 DAILYFEES=700000 #The amount of money a player has to pay each day to maintain the sectors (intentionally larger than baseincome)
+TRANSACTIONTAX=5 #The % of all money going through the sector system that is taken as tax
 BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering sectors = baseincome, 6 boardering sectors = baseincome x 4)
 BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store
 
@@ -835,7 +836,8 @@ SM_LOG_PID=$$
 echo "Logging started at $(date '+%b_%d_%Y_%H.%M.%S')"
 autovoteretrieval &
 randomhelptips &
-sectoraccounting &
+sectorincome &
+sectorfees &
 create_ranks
 create_barred
 # Create the Gate whitelist file if it doesnt exist
@@ -1717,6 +1719,9 @@ then
 	as_user "sed -i 's/JustLoggedIn: .*/JustLoggedIn: No/g' $PLAYERFILE/$INITPLAYER"
 fi
 }
+
+#------------------------------Game mechanics-----------------------------------------
+
 universeboarder() { 
 if [ "$UNIVERSEBOARDER" = "YES" ]
 then
@@ -2051,22 +2056,17 @@ then
 	as_user "sed -i 's/PlayerHeat: .*/PlayerHeat: $NEWHEAT/g' $PLAYERFILE/$2"
 fi
 }
-sectoraccounting(){
+sectorincome(){
 while [ -e /proc/$SM_LOG_PID ]
 do 
 	if [ -f $SECTORFILE ]
 	then
-#		Waits untill midnight before continuing
-		while [ $(date +%H:%M) != "00:00" ]
-		do 
-			sleep 1
-		done
 #		Loops over every line in the file i.e. every owned sector
 		while read SECTOR
 		do
 			SECTOR=($SECTOR)
-#			Works out the income value for that sector based on the number of adjacent sectors
-			INCOME=$(echo "$BASEINCOME * (sqrt(9*${SECTOR[2]} + 9)-2)" | bc -l | cut -d"." -f1)
+#			Works out the income value for that sector based on the number of adjacent sectors (/24 because it runs 24 times a day)
+			INCOME=$(echo "($BASEINCOME * (sqrt(9*${SECTOR[2]} + 9)-2))/24" | bc -l | cut -d"." -f1)
 #			Probably a bit overcomplicated, and not needed, but this basically cuts the income value down to 2SF so values are more rounded
 #			Removes all but the first 2 characters, then prints the character 0 as many times as characters it cut off and then joins that back together
 			INCOME=$(echo ${INCOME:0:-$((${#INCOME} -2))}$(printf "%0.s0" $(seq 1 $((${#INCOME} -2)))))
@@ -2086,11 +2086,45 @@ do
 			as_user "sed -i 's/ ${SECTOR[0]} .*/ $(echo ${SECTOR[@]})/g' $SECTORFILE"
 #		Tells the while loop what file to read
 		done < $SECTORFILE
-#	Ensures it only runs once per day
-	sleep 60
+#	Ensures it runs every hour
+	sleep 3600
 	fi
 done
 	
+}
+sectorfees(){
+while [ -e /proc/$SM_LOG_PID ]
+do 
+	for FACTION in $FACTIONFILE/*
+	do
+		FACTIONID=$(echo $FACTION | rev | cut -d"/" -f1 | rev)
+		OWNEDSECTORS=($(grep "OwnedSectors:" $FACTION | cut -d":" -f2-))
+		FACTIONCREDITS=$(grep "CreditsInBank:" $FACTION | cut -d" " -f2)
+		FEES=$(echo "(${#OWNEDSECTORS[@]}*$DAILYFEES)/24" | bc -l | cut -d"." -f1)
+		FACTIONCREDITS=$(($FACTIONCREDITS-$FEES))
+		if [ $FACTIONCREDITS -lt 0 ] && [ $(($FACTIONCREDITS+$FEES)) -gt 0 ] && [ $FEES -gt 0 ]
+		then
+			UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTIONID | cut -d" " -f2)
+			as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTIONID"
+			CURRENTMAILID=$(grep "CurrentMailId:" $MAILFILE/FAC@$FACTIONID | cut -d" " -f4)
+			echo "MessageID: $CURRENTMAILID Unread: Yes Sender: GALACTICEBANK Time: $(date +%s) Message: Your faction has run out of credits! You have 48 hours to pay off your debt or you will lose your sectors, 1 sector every hour!" >> $MAILFILE/FAC@$FACTIONID
+			as_user "sed -i 's/CurrentMailId: $CURRENTMAILID/CurrentMailId: $(($CURRENTMAILID + 1))/g' $MAILFILE/FAC@$FACTIONID" 
+		elif [ $FACTIONCREDITS -lt $((-$FEES*48)) ] && [ $FEES -gt 0 ]
+		then
+			SECTOR=${OWNEDSECTORS[0]}
+			BEACONNAME=$(grep " $SECTOR " $SECTORFILE | cut -d" " -f6)
+			as_user "sed -i '/ $SECTOR .*/d' $SECTORFILE"
+			as_user "sed -i 's/ $SECTOR//g' $FACTION"
+			UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTIONID | cut -d" " -f2)
+			as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTIONID"
+			CURRENTMAILID=$(grep "CurrentMailId:" $MAILFILE/FAC@$FACTIONID | cut -d" " -f4)
+			echo "MessageID: $CURRENTMAILID Unread: Yes Sender: GALACTICEBANK Time: $(date +%s) Message: Your beacon in sector $SECTOR has been deactivated as repayment for your debt." >> $MAILFILE/FAC@$FACTIONID
+			as_user "sed -i 's/CurrentMailId: $CURRENTMAILID/CurrentMailId: $(($CURRENTMAILID + 1))/g' $MAILFILE/FAC@$FACTIONID" 
+		fi
+		as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $FACTIONCREDITS/g' $FACTION"
+	done
+sleep 3600
+done
 }
 
 #Example Command
