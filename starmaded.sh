@@ -1659,6 +1659,7 @@ then
 		SECTOR=$(grep "${DESSTATION}" $SECTORFILE | cut -d" " -f2)
 		as_user "sed -i '/.* ${DESSTATION}/d' $SECTORFILE"
 		as_user "sed -i 's/ $SECTOR//g' $FACTIONFILE/$FACTION"
+		sectoradjacent $FACTION
 		UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTION | cut -d" " -f2)
 		as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTION"
 		CURRENTMAILID=$(grep "CurrentMailId:" $MAILFILE/FAC@$FACTION | cut -d" " -f4)
@@ -2066,7 +2067,7 @@ do
 		do
 			SECTOR=($SECTOR)
 #			Works out the income value for that sector based on the number of adjacent sectors (/24 because it runs 24 times a day)
-			INCOME=$(echo "($BASEINCOME * (sqrt(9*${SECTOR[2]} + 9)-2))/24" | bc -l | cut -d"." -f1)
+			INCOME=$(echo "($BASEINCOME * (sqrt(${SECTOR[2]})+1))/24" | bc -l | cut -d"." -f1)
 #			Probably a bit overcomplicated, and not needed, but this basically cuts the income value down to 2SF so values are more rounded
 #			Removes all but the first 2 characters, then prints the character 0 as many times as characters it cut off and then joins that back together
 			INCOME=$(echo ${INCOME:0:-$((${#INCOME} -2))}$(printf "%0.s0" $(seq 1 $((${#INCOME} -2)))))
@@ -2112,18 +2113,54 @@ do
 		elif [ $FACTIONCREDITS -lt $((-$FEES*48)) ] && [ $FEES -gt 0 ]
 		then
 			SECTOR=${OWNEDSECTORS[0]}
-			BEACONNAME=$(grep " $SECTOR " $SECTORFILE | cut -d" " -f6)
+			BEACONNAME=$(grep -- " $SECTOR " $SECTORFILE | cut -d" " -f6)
 			as_user "sed -i '/ $SECTOR .*/d' $SECTORFILE"
 			as_user "sed -i 's/ $SECTOR//g' $FACTION"
 			UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTIONID | cut -d" " -f2)
 			as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTIONID"
 			CURRENTMAILID=$(grep "CurrentMailId:" $MAILFILE/FAC@$FACTIONID | cut -d" " -f4)
 			echo "MessageID: $CURRENTMAILID Unread: Yes Sender: GALACTICEBANK Time: $(date +%s) Message: Your beacon in sector $SECTOR has been deactivated as repayment for your debt." >> $MAILFILE/FAC@$FACTIONID
-			as_user "sed -i 's/CurrentMailId: $CURRENTMAILID/CurrentMailId: $(($CURRENTMAILID + 1))/g' $MAILFILE/FAC@$FACTIONID" 
+			as_user "sed -i 's/CurrentMailId: $CURRENTMAILID/CurrentMailId: $(($CURRENTMAILID + 1))/g' $MAILFILE/FAC@$FACTIONID"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all $BEACONNAME unused false\n'"
+			sectoradjacent $FACTIONID
 		fi
 		as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $FACTIONCREDITS/g' $FACTION"
 	done
 sleep 3600
+done
+}
+sectoradjacent(){
+FACTIONSECTORS=$(grep "OwnedSectors:" $FACTIONFILE/$1 | cut -d" " -f2-)
+for SECTOR in $FACTIONSECTORS
+do
+	XCOORD=$(echo $SECTOR | cut -d"," -f1)
+	YCOORD=$(echo $SECTOR | cut -d"," -f2)
+	ZCOORD=$(echo $SECTOR | cut -d"," -f3)
+	NEIGHBOURSECTORS=0
+	for XRANGE in $(($XCOORD -1)) $(($XCOORD +1))
+	do
+		if $(echo "$FACTIONSECTORS" | grep -q -- "$XRANGE,$YCOORD,$ZCOORD")
+		then
+			let NEIGHBOURSECTORS++
+		fi
+	done
+	for YRANGE in $(($YCOORD -1)) $(($YCOORD +1))
+	do
+		if $(echo "$FACTIONSECTORS" | grep -q -- "$XCOORD,$YRANGE,$ZCOORD")
+		then
+			let NEIGHBOURSECTORS++
+		fi
+	done
+	for ZRANGE in $(($ZCOORD -1)) $(($ZCOORD +1))
+	do
+		if $(echo "$FACTIONSECTORS" | grep -q -- "$XCOORD,$YCOORD,$ZRANGE")
+		then
+			let NEIGHBOURSECTORS++
+		fi
+	done
+	SECTORDATA=($(grep -- $SECTOR $SECTORFILE))
+	SECTORDATA[2]=$NEIGHBOURSECTORS
+	as_user "sed -i 's/ $SECTOR .*/ $(echo ${SECTORDATA[@]})/g' $SECTORFILE"
 done
 }
 
@@ -2169,29 +2206,25 @@ else
 			YCOORD=$(echo $PLAYERSECTOR | cut -d"," -f2)
 			ZCOORD=$(echo $PLAYERSECTOR | cut -d"," -f3)
 			NEIGHBOURSECTORS=0
-			NEIGHBOURSECTORSLIST=()
 			for XRANGE in $(($XCOORD -1)) $(($XCOORD +1))
 			do
-				if $(echo "$FACTIONSECTORS" | grep -q "$XRANGE,$YCOORD,$ZCOORD")
+				if $(echo "$FACTIONSECTORS" | grep -q -- "$XRANGE,$YCOORD,$ZCOORD")
 				then
 					let NEIGHBOURSECTORS++
-					NEIGHBOURSECTORSLIST+=("$XRANGE,$YCOORD,$ZCOORD")
 				fi
 			done
 			for YRANGE in $(($YCOORD -1)) $(($YCOORD +1))
 			do
-				if $(echo "$FACTIONSECTORS" | grep -q "$XCOORD,$YRANGE,$ZCOORD")
+				if $(echo "$FACTIONSECTORS" | grep -q -- "$XCOORD,$YRANGE,$ZCOORD")
 				then
 					let NEIGHBOURSECTORS++
-					NEIGHBOURSECTORSLIST+=("$XCOORD,$YRANGE,$ZCOORD")
 				fi
 			done
 			for ZRANGE in $(($ZCOORD -1)) $(($ZCOORD +1))
 			do
-				if $(echo "$FACTIONSECTORS" | grep -q "$XCOORD,$YCOORD,$ZRANGE")
+				if $(echo "$FACTIONSECTORS" | grep -q -- "$XCOORD,$YCOORD,$ZRANGE")
 				then
 					let NEIGHBOURSECTORS++
-					NEIGHBOURSECTORSLIST+=("$XCOORD,$YCOORD,$ZRANGE")
 				fi
 			done
 			THISSECTORCOST=$(echo "$SECTORCOST/(($NEIGHBOURSECTORS/6)+1)" | bc -l | cut -d"." -f1)
@@ -2202,16 +2235,11 @@ else
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Due to the $NEIGHBOURSECTORS adjacent sectors you own, this sector costs $THISSECTORCOST credits\n'"
 				as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
 				as_user "sed -i 's/OwnedSectors: .*/OwnedSectors: $FACTIONSECTORS $PLAYERSECTOR/g' $FACTIONFILE/$FACTION"
-				echo " $PLAYERSECTOR $FACTION $NEIGHBOURSECTORS 0 $BEACONID" >> $SECTORFILE
-				for SECTOR in "${NEIGHBOURSECTORSLIST[@]}"
-				do
-					SECTORDATA=($(grep $SECTOR $SECTORFILE))
-					SECTORDATA[2]=$((${SECTORDATA[2]} + 1))
-					as_user "sed -i 's/ $SECTOR .*/ $(echo ${SECTORDATA[@]})/g' $SECTORFILE"
-				done
+				echo " $PLAYERSECTOR $FACTION $NEIGHBOURSECTORS 0 $BEACONID $THISSECTORCOST" >> $SECTORFILE
 				sleep 0.2
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - A sectoral claim unit has been deployed to your sector. If this is estroyed, then the sector claim is lost!\n'"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity $BEACONNAME $BEACONID $(echo $PLAYERSECTOR | tr "," " ") 0 False \n'"
+				sectoradjacent $FACTION
 				UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTION | cut -d" " -f2)
 				as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTION"
 				CURRENTMAILID=$(grep "CurrentMailId:" $MAILFILE/FAC@$FACTION | cut -d" " -f4)
@@ -2225,6 +2253,22 @@ else
 		fi
 	else
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You are not in a registered faction.\n'"
+	fi
+fi
+}
+function COMMAND_BEACONWITHDRAW(){
+#Takes money out of a beacon that you own. Only works if you are within a sector that contains a beacon
+if [ "$#" -ne 2 ]
+then
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BEACONWITHDRAW <Amount>\n'"
+else
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Logging in to the nearby beacon...\n'"
+	log_playerinfo $1
+	FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+	SECTOR
+	if [ ! $FACTION = "None" ]
+	then
+		echo NA
 	fi
 fi
 }
