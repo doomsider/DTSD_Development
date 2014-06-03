@@ -110,7 +110,6 @@ PIRATECOOLTIMER=300 #The minimum time in seconds between each spawn
 BEACONNAME='Beacon' #The blueprint name of the sector beacon station (select a station and use /save)
 SECTORCOST=10000000 #The base cost to buy a sector (0 boardering sectors = 100% cost, 6 boardering sectors = 50% cost)
 DAILYFEES=700000 #The amount of money a player has to pay each day to maintain the sectors (intentionally larger than baseincome)
-TRANSACTIONTAX=5 #The % of all money going through the sector system that is taken as tax
 BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering sectors = baseincome, 6 boardering sectors = baseincome x 4)
 BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store
 
@@ -2256,19 +2255,99 @@ else
 	fi
 fi
 }
-function COMMAND_BEACONWITHDRAW(){
-#Takes money out of a beacon that you own. Only works if you are within a sector that contains a beacon
-if [ "$#" -ne 2 ]
+function COMMAND_SECTORLIST(){
+#Lists all sectors that belong to your faction
+#USAGE: !SECTORLIST
+if [ "$#" -ne 1 ]
 then
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BEACONWITHDRAW <Amount>\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !SECTORLIST\n'"
 else
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Logging in to the nearby beacon...\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Gathering sector information...\n'"
 	log_playerinfo $1
 	FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
-	SECTOR
 	if [ ! $FACTION = "None" ]
 	then
-		echo NA
+		while read SECTOR
+		do
+			SECTORDATA=($SECTOR)
+			if [ ${SECTORDATA[1]} = $FACTION ]
+			then
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 [Sector: ${SECTORDATA[0]} Credits: ${SECTORDATA[3]}]\n'"
+			fi
+		done < $SECTORFILE
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Your faction owns sectors:\n'"
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You are not in a faction!\n'"
+	fi
+fi
+}
+function COMMAND_BEACONWITHDRAW(){
+#Takes money out of a beacon that you own. Only works if you are within a sector that contains a beacon
+#USAGE: !BEACONWITHDRAW <Amount>
+if [ "$#" -ne 2 ]
+then
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BEACONWITHDRAW <Amount/All>\n'"
+else
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Gathering sector information...\n'"
+	log_playerinfo $1
+	FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+	if [ ! $FACTION = "None" ]
+	then
+		SECTOR=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+		if grep -q -- " $SECTOR " $SECTORFILE
+		then
+			SECTORDATA=($(grep -- " $SECTOR " $SECTORFILE))
+			if [ $FACTION -eq ${SECTORDATA[1]} ]
+			then
+				if [ $(echo $2 | tr [a-z] [A-Z]) = "ALL" ]
+				then
+					FACTIONCREDITS=$(($(grep "CreditsInBank:" $FACTIONFILE/$FACTION | cut -d" " -f2) + ${SECTORDATA[3]}))
+					SECTORDATA[3]=0
+				else
+					SECTORDATA[3]=$((${SECTORDATA[3]} - $2))
+					FACTIONCREDITS=$(($(grep "CreditsInBank:" $FACTIONFILE/$FACTION | cut -d" " -f2) + $2))
+				fi
+				as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
+				as_user "sed -i 's/ ${SECTORDATA[0]} .*/ $(echo ${SECTORDATA[@]})/g' $SECTORFILE"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You have taken $2 credits from beacon $(echo ${SECTORDATA[4]} | cut -d"_" -f5) in sector ${SECTORDATA[1]}\n'"
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - This sector does not belong to your faction\n'"
+			fi
+		else
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - No records of a sector claim here exist!\n'"
+		fi
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You are not in a faction!\n'"
+	fi
+fi
+}
+function COMMAND_BEACONBALANCE(){
+#Takes money out of a beacon that you own. Only works if you are within a sector that contains a beacon
+#USAGE: !BEACONBALANCE
+if [ "$#" -ne 1 ]
+then
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BEACONBALANCE\n'"
+else
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Gathering sector information...\n'"
+	log_playerinfo $1
+	FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+	if [ ! $FACTION = "None" ]
+	then
+		SECTOR=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+		if grep -q -- " $SECTOR " $SECTORFILE
+		then
+			SECTORDATA=($(grep -- " $SECTOR " $SECTORFILE))
+			if [ $FACTION -eq ${SECTORDATA[1]} ]
+			then
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Beacon $(echo ${SECTORDATA[4]} | cut -d"_" -f5) in sector ${SECTORDATA[1]} contains ${SECTORDATA[3]} credits \n'"
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - This sector does not belong to your faction\n'"
+			fi
+		else
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - No records of a sector claim here exist!\n'"
+		fi
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You are not in a faction!\n'"
 	fi
 fi
 }
