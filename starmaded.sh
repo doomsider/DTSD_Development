@@ -2443,7 +2443,7 @@ function COMMAND_FOLD(){
 			if [ "$ADJUSTEDTIME" -gt "$OLDPLAYERLASTFOLD" ]
 			then
 				SECTOR[$1]=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
-				DISTANCE=$(echo "($(echo ${SECTOR[$1]} | cut -d"," -f1)-$2)^2+($(echo ${SECTOR[$1]} | cut -d"," -f2)-$3)^2+($(echo ${SECTOR[$1]} | cut -d"," -f3)-$4)^2" | bc)
+				DISTANCE=$(echo "($(echo ${SECTOR[$1]} | cut -d"," -f1)- $2)^2+($(echo ${SECTOR[$1]} | cut -d"," -f2)- $3)^2+($(echo ${SECTOR[$1]} | cut -d"," -f3)- $4)^2" | bc)
 				if [ "$DISTANCE" -le "$FOLDLIMIT" ]
 				then
 					WARMUP=50
