@@ -112,6 +112,7 @@ SECTORCOST=10000000 #The base cost to buy a sector (0 boardering sectors = 100% 
 DAILYFEES=700000 #The amount of money a player has to pay each day to maintain the sectors (intentionally larger than baseincome)
 BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering sectors = baseincome, 6 boardering sectors = baseincome x 4)
 BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store
+SECTORREFUND=90 #The percentage of credits back from selling a sector
 
 #------------------------Game settings----------------------------------------------------------------------------
 
@@ -206,6 +207,7 @@ CONFIGFILE=(
 "BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering sectors = baseincome, 6 boardering sectors = baseincome x 4)"
 "BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store"
 "DAILYFEES=700000 #The amount of money a player has to pay each day to maintain the sectors (intentionally larger than baseincome)"
+"SECTORREFUND=90 #The percentage of credits back from selling a sector"
 )
 #Simply put, it ensures the bare minimum of variables are in the config file, to allow the daemon to run.
 #If you want to add new config options, add them into create_config aswell as here
@@ -2351,6 +2353,41 @@ else
 	fi
 fi
 }
+function COMMAND_BEACONSELL(){
+#Takes money out of a beacon that you own. Only works if you are within a sector that contains a beacon
+#USAGE: !BEACONSELL
+if [ "$#" -ne 1 ]
+then
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BEACONSELL\n'"
+else
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Gathering sector information...\n'"
+	log_playerinfo $1
+	FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+	if [ ! $FACTION = "None" ]
+	then
+		SECTOR=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+		if grep -q -- " $SECTOR " $SECTORFILE
+		then
+			SECTORDATA=($(grep -- " $SECTOR " $SECTORFILE))
+			if [ $FACTION -eq ${SECTORDATA[1]} ]
+			then
+				FACTIONCREDITS=$(($(grep "CreditsInBank:" $FACTIONFILE/$FACTION | cut -d" " -f2) + ${SECTORDATA[3]} + (${SECTORDATA[5]} * $SECTORREFUND / 100)))
+				as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
+				as_user "sed -i '/ ${SECTORDATA[0]} .*/d' $SECTORFILE"
+				as_user "sed -i 's/ ${SECTORDATA[0]}//g' $FACTIONFILE/$FACTION"
+				sectoradjacent $FACTION
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You have sucessfully sold the sector for $((${SECTORDATA[3]} + (${SECTORDATA[5]} * $SECTORREFUND / 100))) credits.\n'"
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - This sector does not belong to your faction\n'"
+			fi
+		else
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - No records of a sector claim here exist!\n'"
+		fi
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You are not in a faction!\n'"
+	fi
+fi
+}
 
 #Mail Commands
 function COMMAND_MAIL(){
@@ -2471,6 +2508,24 @@ function COMMAND_MAIL(){
 						as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT - 1))/g' $MAILFILE/$1"
 					fi
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Message from $SENDER, $DATE $TIME has been deleted.\n'"
+				elif [ $(echo $3 | tr [a-z] [A-Z]) = "ALL" ]
+				then
+					while read MAIL
+					do
+						if [[ ! $MAIL =~ "CurrentMailId:" ]]
+						then 
+							MAILDATA=$MAIL
+							UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTION | cut -d" " -f2)
+							UNREAD=$(echo $MAILDATA | cut -d" " -f4)
+							as_user "sed -i '/$MAILDATA/d' $MAILFILE/$1"
+#							Reduces the unreadcount by 1 if the mail deleted was unread
+							if [ $UNREAD = "Yes" ]
+							then
+								as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT - 1))/g' $MAILFILE/$1"
+							fi
+						fi
+					done < $MAILFILE/$1
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 All mail has been deleted.\n'"
 				else
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 That message ID does not exist.\n'"
 				fi
@@ -2630,6 +2685,24 @@ function COMMAND_FMAIL(){
 						as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT - 1))/g' $MAILFILE/FAC@$FACTION"
 					fi
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Message from $SENDER, $DATE $TIME has been deleted.\n'"
+				elif [ $(echo $3 | tr [a-z] [A-Z]) = "ALL" ]
+				then
+					while read MAIL
+					do
+						if [[ ! $MAIL =~ "CurrentMailId:" ]]
+						then 
+							MAILDATA=$MAIL
+							UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTION | cut -d" " -f2)
+							UNREAD=$(echo $MAILDATA | cut -d" " -f4)
+							as_user "sed -i '/$MAILDATA/d' $MAILFILE/FAC@$FACTION"
+#							Reduces the unreadcount by 1 if the mail deleted was unread
+							if [ $UNREAD = "Yes" ]
+							then
+								as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT - 1))/g' $MAILFILE/FAC@$FACTION"
+							fi
+						fi
+					done < $MAILFILE/FAC@$FACTION
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 All mail has been deleted.\n'"
 				else
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 That message ID does not exist.\n'"
 				fi
