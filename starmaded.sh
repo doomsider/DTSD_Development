@@ -79,6 +79,7 @@ TIPFILE=$STARTERPATH/logs/tips.txt #The file that contains random tips that will
 FACTIONFILE=$STARTERPATH/factionfiles #The folder that contains individual faction files
 BARREDWORDS=$STARTERPATH/logs/barredwords.log #The file that contains all blocked words (for use with SwearPrevention)
 SECTORFILE=$STARTERPATH/logs/sectordata.log #The file that contains a list of all owned sectors, and their stats
+PROTECTEDSECTORS=$STARTERPATH/logs/protected.log #Contains a list of all protected sectors (only works with custom spawning)
 
 #-------------------------Chat Settings-------------------------------------------------------------------
 
@@ -208,6 +209,7 @@ CONFIGFILE=(
 "BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store"
 "DAILYFEES=700000 #The amount of money a player has to pay each day to maintain the sectors (intentionally larger than baseincome)"
 "SECTORREFUND=90 #The percentage of credits back from selling a sector"
+"PROTECTEDSECTORS=$STARTERPATH/logs/protected.log #Contains a list of all protected sectors (only works with custom spawning)"
 )
 #Simply put, it ensures the bare minimum of variables are in the config file, to allow the daemon to run.
 #If you want to add new config options, add them into create_config aswell as here
@@ -2016,11 +2018,11 @@ declare -f -F $1 > /dev/null 2>&1
 FUNCTIONEXISTS=$?
 }
 customspawns(){
-SPAWNX=$(grep "DEFAULT_SPAWN_SECTOR_X =" $STARTERPATH/StarMade/server.cfg | cut -d" " -f3)
-SPAWNY=$(grep "DEFAULT_SPAWN_SECTOR_Y =" $STARTERPATH/StarMade/server.cfg | cut -d" " -f3)
-SPAWNZ=$(grep "DEFAULT_SPAWN_SECTOR_Z =" $STARTERPATH/StarMade/server.cfg | cut -d" " -f3)
-SPAWNCOORDS="$SPAWNX,$SPAWNY,$SPAWNZ"
-if [ $CUSTOMSPAWNING = "Yes" ] && [[ $1 != $SPAWNCOORDS ]]
+if [ ! -f $PROTECTEDSECTORS ]
+then
+	echo "[2,2,2]" >> $PROTECTEDSECTORS
+fi
+if [ $CUSTOMSPAWNING = "Yes" ] && ! grep -q -- "[$1]" $PROTECTEDSECTORS
 then
 #	Gets the players heat (spawn chance) and time of next allowed spawn
 	PLAYERHEAT=$(grep "PlayerHeat:" $PLAYERFILE/$2 | cut -d" " -f2)
@@ -2388,6 +2390,7 @@ else
 	fi
 fi
 }
+
 
 #Mail Commands
 function COMMAND_MAIL(){
