@@ -2232,7 +2232,7 @@ else
 					let NEIGHBOURSECTORS++
 				fi
 			done
-			THISSECTORCOST=$(echo "$SECTORCOST/(($NEIGHBOURSECTORS/6)+1)" | bc -l | cut -d"." -f1)
+			THISSECTORCOST=$(echo "$SECTORCOST/(sqrt($NEIGHBOURSECTORS/6)+1)" | bc -l | cut -d"." -f1)
 			if [ $FACTIONCREDITS -ge $THISSECTORCOST ]
 			then
 				FACTIONCREDITS=$(($FACTIONCREDITS - $THISSECTORCOST))
