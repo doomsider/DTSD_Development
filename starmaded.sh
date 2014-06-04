@@ -295,7 +295,6 @@ FACTIONFILETEMPLATE=(
 "CreditsInBank: 0"
 "OwnedSectors: "
 "TrespassMessage: "
-"TaxPercent: 0"
 )
 }
 sm_start() { 
@@ -1662,6 +1661,7 @@ then
 		SECTOR=$(grep "${DESSTATION}" $SECTORFILE | cut -d" " -f2)
 		as_user "sed -i '/.* ${DESSTATION}/d' $SECTORFILE"
 		as_user "sed -i 's/ $SECTOR//g' $FACTIONFILE/$FACTION"
+		as_user "sed -i '/^.*${SECTOR}.*/d' $PROTECTEDSECTORS"
 		sectoradjacent $FACTION
 		UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTION | cut -d" " -f2)
 		as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTION"
@@ -2022,7 +2022,7 @@ if [ ! -f $PROTECTEDSECTORS ]
 then
 	echo "[2,2,2]" >> $PROTECTEDSECTORS
 fi
-if [ $CUSTOMSPAWNING = "Yes" ] && ! grep -q -- "[$1]" $PROTECTEDSECTORS
+if [ $CUSTOMSPAWNING = "Yes" ] && ! grep -qF -- "[$1]" $PROTECTEDSECTORS
 then
 #	Gets the players heat (spawn chance) and time of next allowed spawn
 	PLAYERHEAT=$(grep "PlayerHeat:" $PLAYERFILE/$2 | cut -d" " -f2)
@@ -2048,6 +2048,7 @@ then
 			SPAWNSHIP=$(($RANDOM % ${#PIRATENAMES[@]}))
 #			$(date +%s)$RANDOM gives each ship a unique name
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity ${PIRATENAMES[$SPAWNSHIP]} MOB_CUSTOM_PIRATE_$(date +%s)$RANDOM $(echo $1 | tr "," " ") -1 True\n'"
+			sleep 0.1
 		done
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $2 $NUMOFSPAWNS pirates have locked onto you and warped in!\n'"
 #		Sets a delay on when the next spawn for that player can be
@@ -2119,6 +2120,7 @@ do
 			BEACONNAME=$(grep -- " $SECTOR " $SECTORFILE | cut -d" " -f6)
 			as_user "sed -i '/ $SECTOR .*/d' $SECTORFILE"
 			as_user "sed -i 's/ $SECTOR//g' $FACTION"
+			as_user "sed -i '/[$SECTOR]/d' $PROTECTEDSECTORS"
 			UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTIONID | cut -d" " -f2)
 			as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTIONID"
 			CURRENTMAILID=$(grep "CurrentMailId:" $MAILFILE/FAC@$FACTIONID | cut -d" " -f4)
@@ -2239,6 +2241,7 @@ else
 				as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
 				as_user "sed -i 's/OwnedSectors: .*/OwnedSectors: $FACTIONSECTORS $PLAYERSECTOR/g' $FACTIONFILE/$FACTION"
 				echo " $PLAYERSECTOR $FACTION $NEIGHBOURSECTORS 0 $BEACONID $THISSECTORCOST" >> $SECTORFILE
+				echo "[$PLAYERSECTOR]" >> $PROTECTEDSECTORS
 				sleep 0.2
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - A sectoral claim unit has been deployed to your sector. If this is estroyed, then the sector claim is lost!\n'"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity $BEACONNAME $BEACONID $(echo $PLAYERSECTOR | tr "," " ") 0 False \n'"
@@ -2377,6 +2380,7 @@ else
 				as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
 				as_user "sed -i '/ ${SECTORDATA[0]} .*/d' $SECTORFILE"
 				as_user "sed -i 's/ ${SECTORDATA[0]}//g' $FACTIONFILE/$FACTION"
+				as_user "sed -i '/^.*${SECTOR}.*/d' $PROTECTEDSECTORS"
 				sectoradjacent $FACTION
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You have sucessfully sold the sector for $((${SECTORDATA[3]} + (${SECTORDATA[5]} * $SECTORREFUND / 100))) credits.\n'"
 			else
@@ -2390,7 +2394,6 @@ else
 	fi
 fi
 }
-
 
 #Mail Commands
 function COMMAND_MAIL(){
