@@ -14,9 +14,19 @@ STARTERPATH=$(echo $DAEMONPATH | rev | cut -d"/" -f2- | rev)
 ME=`whoami`
 if [ -e $CONFIGPATH ]
 then
-#	echo "Reading from Source $CONFIGPATH"
+	echo "Checking HASH to see if Daemon was updated"
+	CONFIGHASH=$(grep HASH $CONFIGPATH | cut -d= -f2 | tr -d ' ')
+	CURRENTHASH=$(md5sum $DAEMONPATH |  cut -d" " -f1 | tr -d ' ')
+	if [ "$CONFIGHASH" = "$CURRENTHASH" ]
+	then
+		echo "No update detected, Reading from Source $CONFIGPATH"
+		source $CONFIGPATH
+	else
+		echo "Changes detected updating config files"
+# Here is where update will take place
 # Source read from another file.  In this case it is the config file containing all the settings for the Daemon
-	source $CONFIGPATH
+		source $CONFIGPATH
+	fi
 else
 # If no config file present set the username temporarily to the current user
 USERNAME=$(whoami)
@@ -45,6 +55,7 @@ CONFIGCREATE="cat > $CONFIGPATH <<_EOF_
 #  Logging is for turning on or off with a YES or a NO
 #  Daemon Path is only used if you are going to screen log
 #  Server key is for the rewards and voting function and is setup for http://starmade-servers.com/
+HASH=0
 SERVICE='StarMade.jar' #The name of the .jar file to be run
 USERNAME="$USERNAME" #Your login name
 BACKUP='/home/$USERNAME/starbackup' #The location where all backups created are saved
@@ -237,6 +248,8 @@ then
 	echo "Creating configuration file please edit configuration file (ie: starmade.cfg) or script may not function as intended"
 # This creates the config file.  This is the only file alteration that does not use as_user.  Therefore the Daemon should be ran by the intended user
 	create_config
+	CREATEHASH=$(md5sum $DAEMONPATH | cut -d" " -f1 | tr -d ' ')
+	as_user "sed -i 's/HASH=.*/HASH=$CREATEHASH/g' $CONFIGPATH"
 	exit	
 else
 	check_config
@@ -762,7 +775,7 @@ then
 # Ban that IP
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/ban_ip $BANNEDIP\n'"
 # Keep from spamming commands to fast to server
-			sleep 2
+			sleep 1
 # Add 1 to the array
 			let BANARRAY++
 		done
@@ -2168,6 +2181,266 @@ do
 	as_user "sed -i 's/ $SECTOR .*/ $(echo ${SECTORDATA[@]})/g' $SECTORFILE"
 done
 }
+
+#---------------------------Files Daemon Writes and Updates---------------------------------------------
+
+write_factionfile() { #Must update how all these variables for grep and sed due to = change. Parameter of Faction must be passed
+CREATEFACTION="cat > $FACTIONFILE/$1 <<_EOF_
+CreditsInBank=0
+OwnedSectors=0
+TrespassMessage=0
+TaxPercent=0
+_EOF_"
+as_user "$CREATEFACTION"
+}
+write_barredwords() {
+CREATEBARRED="cat > $BARREDWORDS <<_EOF_
+fuck
+shit
+crap
+dick
+ffs
+asshole
+_EOF_"
+as_user "$CREATEBARRED"
+}
+write_configpath() {
+CONFIGCREATE="cat > $CONFIGPATH <<_EOF_
+#  Settings below can all be custom tailored to any setup.
+#  Username is your user on the server that runs starmade
+#  Backupname is the name you want your backup file to have
+#  Service is the name of your Starmade jar file 
+#  Backup is the path you want to move you backups to
+#  Starterpath is where you starter file is located.  Starmade folder will be located in this directory
+#  Maxmemory controls the total amount Java can use.  It is the -xmx variable in Java
+#  Minmemory is the inital amounr of memory to use.  It is the -xms variable in Java
+#  Port is the port that Starmade will use.  Set to 4242 by default.
+#  Logging is for turning on or off with a YES or a NO
+#  Daemon Path is only used if you are going to screen log
+#  Server key is for the rewards and voting function and is setup for http://starmade-servers.com/
+HASH=0
+SERVICE='StarMade.jar' #The name of the .jar file to be run
+USERNAME="$USERNAME" #Your login name
+BACKUP='/home/$USERNAME/starbackup' #The location where all backups created are saved
+BACKUPNAME='Star_Backup_' #Name of the backups
+MAXMEMORY=512m #Java setting. Max memory assigned to the server
+MINMEMORY=256m #Java setting. Min memory assigned to the server
+PORT=4242 #The port the server will run on
+SCREENID=smserver #Name of the screen the server will be run on
+SCREENLOG=smlog #Name of the screen logging will be run on
+LOGGING=YES #Determines if logging will be active (YES/NO))
+SERVERKEY="00000000000000000000" #Server key found at starmade-servers.com (used for voting rewards)
+
+#------------------------Logging files----------------------------------------------------------------------------
+
+RANKCOMMANDS=$STARTERPATH/logs/rankcommands.log #The file that contains all the commands each rank is allowed to use
+SHIPLOG=$STARTERPATH/logs/ship.log #The file that contains a record of all the ships with their sector location and the last person who entered it
+CHATLOG=$STARTERPATH/logs/chat.log #The file that contains a record of all chat messages sent
+BOUNTYLOG=$STARTERPATH/logs/bounty.log #The file that contains all bounty records
+GATELOG=$STARTERPATH/logs/gates.log #The file that contains all the jump gates and their details
+PLAYERFILE=$STARTERPATH/playerfiles #The directory that contains all the individual player files which store player information
+MAILFILE=$STARTERPATH/mail #The directory that contains all player mail
+GATEWHITELIST=$STARTERPATH/gatewhitelist #The directory that contains all the individual player files which store who is allowed to access their jump gates
+KILLLOG=$STARTERPATH/logs/kill.log #The file with a record of all deaths on the server
+ADMINLOG=$STARTERPATH/logs/admin.log #The file with a record of all admin commands issued
+GUESTBOOK=$STARTERPATH/logs/guestbook.log #The file with a record of all the logouts on the server
+STATIONLOG=$STARTERPATH/logs/station.log #The file that contains all of the stations on the server
+PLANETLOG=$STARTERPATH/logs/planet.log #The file that contains all of the planets on the server
+SHIPBUYLOG=$STARTERPATH/logs/shipbuy.log #The file that contains all the ships spawned on the server
+BANKLOG=$STARTERPATH/logs/bank.log #The file that contains all transactions made on the server
+ONLINELOG=$STARTERPATH/logs/online.log #The file that contains the list of currently online players
+TIPFILE=$STARTERPATH/logs/tips.txt #The file that contains random tips that will be told to players
+FACTIONFILE=$STARTERPATH/factionfiles #The folder that contains individual faction files
+BARREDWORDS=$STARTERPATH/logs/barredwords.log #The file that contains all blocked words (for use with SwearPrevention)
+SECTORFILE=$STARTERPATH/logs/sectordata.log #The file that contains a list of all owned sectors, and their stats
+PROTECTEDSECTORS=$STARTERPATH/logs/protected.log #Contains a list of all protected sectors (only works with custom spawning)
+
+#-------------------------Chat Settings-------------------------------------------------------------------
+
+SPAMPREVENTION=Yes # Turns on or off the SpamPrevention system (Yes/No)
+SPAMLIMIT=5 # The number of messages that can be sent within the $SPAMTIMER before a player will be warned
+SPAMTIMER=10 # The time taken for the message counter to reduce by one after sending a chat message
+SPAMALLOWANCE=2 # The number of messages allowed between receiving the warning and being kicked
+SPAMKICKLIMIT=2 # The number of kicks from the server before the player is banned (Set to really high to turn off)
+SWEARPREVENTION=Yes # Turns on or off the SwearPrevention system (Yes/No)
+SWEARLIMIT=2 # The number of swear words allowed within $SWEARTIMER seconds
+SWEARTIMER=60 # The time taken for the swear counter to reduce by one after swearing
+SWEARKICKLIMIT=2 # The number of kicks from the server before the player is banned (Set to really high to turn off)
+CAPSPREVENTION=Yes # Turns on or off the CapsPrevention system (Yes/No)
+CAPSLIMIT=5 # The number of messages that can be sent that exceed the $CAPSPERCENT limit
+CAPSTIMER=10 # The time taken for the caps counter to reduce by one after sending a message with too many caps
+CAPSKICKLIMIT=4 # The number of kicks a player can recieve for Caps before theyre banned
+CAPSPERCENT=30 # The percentage of letters in a chat message that can be caps
+
+#-------------------------Custom Spawns-------------------------------------------------------------------
+
+CUSTOMSPAWNING=Yes #Determines if the server will use a custom spawning method, utilising player movement
+PIRATENAMES=('Isanth-VI') #The blueprint names of all pirate ships on the server
+LIMITCHANCE=50 #The % chance of pirates spawning per sector change at maximum
+SPAWNLIMIT=9 #The maximum number of pirates inside a wave
+PIRATECOOLTIMER=300 #The minimum time in seconds between each spawn
+
+#-------------------------Sector ownership-------------------------------------------------------------------
+
+BEACONNAME='Beacon' #The blueprint name of the sector beacon station (select a station and use /save)
+SECTORCOST=10000000 #The base cost to buy a sector (0 boardering sectors = 100% cost, 6 boardering sectors = 50% cost)
+DAILYFEES=700000 #The amount of money a player has to pay each day to maintain the sectors (intentionally larger than baseincome)
+BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering sectors = baseincome, 6 boardering sectors = baseincome x 4)
+BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store
+SECTORREFUND=90 #The percentage of credits back from selling a sector
+
+#------------------------Game settings----------------------------------------------------------------------------
+
+GATECOST=50 #Number of voting points needed to spawn a gate
+#Gate level stats. GATETEIR[LEVEL]=\"vote-cost warm-up-time cool-down-time\" Can be expanded following the same format infinitely
+GATETEIR[1]=\"0 15 180\"
+GATETEIR[2]=\"2 13 160\"
+GATETEIR[3]=\"3 11 140\"
+GATETEIR[4]=\"5 9 120\"
+GATETEIR[5]=\"8 7 110\"
+GATETEIR[6]=\"10 5 90\"
+GATETEIR[7]=\"15 5 80\"
+GATETEIR[8]=\"20 5 70\"
+GATETEIR[9]=\"30 5 60\"
+GATEREFUND=90 #percentage of the cost of the gate that players get back
+VOTECHECKDELAY=10 #The time in seconds between each check of starmade-servers.org
+CREDITSPERVOTE=1000000 # The number of credits a player gets per voting point.
+FOLDLIMIT=900 #Due to the way bash square roots numbers, this is the square of the distance limit to be more accurate with distances
+UNIVERSEBOARDER=YES #Turn on and off the universe boarder (YES/NO)
+UNIVERSECENTER=\"2,2,2\" #Set the center of the universe boarder
+UNIVERSERADIUS=50 #Set the radius of the universe boarder around 
+TIPINTERVAL=600 #Number of seconds between each tip being shown
+STARTINGRANK=Ensign #The initial rank players recieve when they log in for the first time. Can be edited.
+_EOF_"
+as_user "$CONFIGCREATE"
+}
+write_playerfile() { #Must update how all these variables for grep and sed due to = change.  Parameter of Player must be passed
+PLAYERCREATE="cat > $PLAYERFILE/$1 <<_EOF_
+Rank: [$STARTINGRANK]
+CreditsInBank=0
+VotingPoints=0
+CurrentVotes=0
+Bounty=0
+WarpTeir=1
+JumpDisabled=0
+CommandConfirm=0
+CurrentIP=0.0.0.0
+CurrentCredits=0
+PlayerFaction=None
+PlayerLocation=2,2,2
+PlayerControllingType=Spacesuit
+PlayerControllingObject=PlayerCharacter
+PlayerLastLogin=0
+PlayerLastCore=0
+PlayerLastFold=0
+PlayerLastUpdate=0
+PlayerLastKilled=None
+PlayerKilledBy=None
+PlayerLoggedIn=No
+ChatCount=0
+SpamWarning=No
+SpamKicks=0
+SwearCount=0
+SwearKicks=0
+CapsCount=0
+CapsKicks=0
+JustLoggedIn=No
+PlayerHeat=0
+PirateCooldown=0
+_EOF_"
+as_user "$PLAYERCREATE"
+}
+write_rankcommands() {
+CREATERANK="cat > $RANKCOMMANDS <<_EOF_
+Ensign MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE GIVEHARD GIVENORMAL GIVE TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART
+Lieutenant MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK
+Commander MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN
+Captain MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN RESTART DESPAWN KILL BANHAMMER TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART
+Admiral MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE MAILALL ADMINADDJUMP ADMINDELETEJUMP RANKSET RANKUSER BANHAMMER KILL WHITEADD BANPLAYER UNBAN SHUTDOWN RESTART CREDITS IMPORT EXPORT DESPAWN LOADSHIP GIVE GIVENORMALGIVEHARD KICK GODON GODOFF INVISION INVISIOFF TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART MYDETAILS ADMINCOOLDOWN ADMINREADFILE THREADDUMP GIVESET GIVEMETA
+Admin -ALL-
+_EOF_"
+as_user "$CREATERANK"
+}
+write_tipfile() {
+CREATETIP="cat > $TIPFILE <<_EOF_
+!HELP is your fried! If you are stuck on a command, use !HELP <Command>
+Want to get from place to place quickly? Try !FOLD
+Ever wanted to be rewarded for voting for the server? Vote now at starmade-servers.org to get voting points!
+Been voting a lot lately? You can spend your voting points on a Jump Gate! Try !ADDJUMP 
+Want to reward people for killing your arch enemy? Try !POSTBOUNTY
+Fancy becoming a bounty hunter? Use !LISTBOUNTY to see all bounties
+Killed someone with a bounty recently? Try using !COLLECTBOUNTY
+Got too much money? Store some in your bank account with !DEPOSIT
+Need to get some money? Take some out of your bank account with !WITHDRAW
+Stuck in the middle of nowhere but dont want to suicide? Try !CORE
+Want to tell your friend youve found something but theyre offline? Try !MAIL SEND
+Logged in and you have an unread message? Try !MAIL LIST Unread
+Want to secretly use a command? Try using a command inside a PM to yourself!
+_EOF_"
+as_user "$CREATETIP"
+}
+update_file() {
+
+#Use sed to extract new file from daemon script into an array
+#Use cat to extract old config file into array
+#Remove the existing config file in case the new config has shrunk in size
+#Go through new file array line by line if = is detected then look into old file array for variable and insert it and write the line if not just write the line for comments, spacing, and whatnot
+
+
+
+
+echo "Starting Update"
+#$2 is the write function to update the old config filename
+#$3 is the name of the specific file for functions like playerfile or factionfile
+OLD_IFS=$IFS
+IFS=$'\n'
+NEWCONFIGARRAY=( $(sed -n "/$2/,/_EOF_\"/p" $DAEMONPATH | sed '$d') )
+echo "Here is the array from Daemon ${NEWCONFIGARRAY[*]}"
+echo "Here is the first line of the newconfigarray ${NEWCONFIGARRAY[1]}"
+PATHUPDATEFILE=$(echo ${NEWCONFIGARRAY[1]} | cut -d$ -f2- | cut -d" " -f1)
+
+
+
+IFS=$OLD_IFS
+
+
+echo "This string is the pathupdatefile $PATHUPDATEFILE"
+if [ "$#" -eq "2" ]
+then
+	echo "This is the actual path to the file to be updated ${!PATHUPDATEFILE}"
+	OLDCONFIGARRAY=( $(cat ${!PATHUPDATEFILE}) )
+	echo "Here is the array from file ${OLDCONFIGARRAY[*]}"
+	FILEARRAY=2
+	rm ${!PATHUPDATEFILE}
+	touch ${!PATHUPDATEFILE}
+	while [ -n "${NEWCONFIGARRAY[FILEARRAY]+set}" ]
+	do
+		case "${NEWCONFIGARRAY[FILEARRAY]}" in
+			*"="*) 
+				echo "New format command detected"
+#				FILESETTING=$(
+				
+				;;
+			*":"*) 
+				echo "Old format variable detected"
+
+				
+				;;
+			*) 
+				
+				;;
+			esac
+#			echo "all done"
+	done
+else
+	echo "This is the actual path to the file to be updated ${!PATHUPDATEFILE}/$3"
+
+
+fi
+
+}
+
+
 
 #Example Command
 #In the command system, $1 = Playername , $2 = parameter 1 , $3 = parameter 2 , ect
@@ -4578,6 +4851,9 @@ ban)
 	;;
 dump)
 	sm_dump $@
+	;;
+uptest)
+	update_file $@
 	;;
 help)
 	sm_help
