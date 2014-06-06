@@ -12,11 +12,11 @@ CONFIGPATH="$(echo $DAEMONPATH | cut -d"." -f1).cfg"
 STARTERPATH=$(echo $DAEMONPATH | rev | cut -d"/" -f2- | rev)
 # Since this is a Daemon it can be called on from anywhere from just about anything.  This routine below ensures the Daemon is using the proper user for the correct privledges
 ME=`whoami`
+CURRENTHASH=$(md5sum $DAEMONPATH |  cut -d" " -f1 | tr -d ' ')
 if [ -e $CONFIGPATH ]
 then
 	echo "Checking HASH to see if Daemon was updated"
 	CONFIGHASH=$(grep HASH $CONFIGPATH | cut -d= -f2 | tr -d ' ')
-	CURRENTHASH=$(md5sum $DAEMONPATH |  cut -d" " -f1 | tr -d ' ')
 	if [ "$CONFIGHASH" = "$CURRENTHASH" ]
 	then
 		echo "No update detected, Reading from Source $CONFIGPATH"
@@ -55,7 +55,7 @@ CONFIGCREATE="cat > $CONFIGPATH <<_EOF_
 #  Logging is for turning on or off with a YES or a NO
 #  Daemon Path is only used if you are going to screen log
 #  Server key is for the rewards and voting function and is setup for http://starmade-servers.com/
-HASH=0
+HASH=$CURRENTHASH
 SERVICE='StarMade.jar' #The name of the .jar file to be run
 USERNAME="$USERNAME" #Your login name
 BACKUP='/home/$USERNAME/starbackup' #The location where all backups created are saved
@@ -120,16 +120,16 @@ PIRATECOOLTIMER=300 #The minimum time in seconds between each spawn
 #-------------------------Sector ownership-------------------------------------------------------------------
 
 BEACONNAME='Beacon' #The blueprint name of the sector beacon station (select a station and use /save)
-SECTORCOST=10000000 #The base cost to buy a sector (0 boardering sectors = 100% cost, 6 boardering sectors = 50% cost)
+SECTORCOST=10000000 #The base cost to buy a sector (0 boardering sectors equals 100% cost, 6 boardering sectors equals 50% cost)
 DAILYFEES=700000 #The amount of money a player has to pay each day to maintain the sectors (intentionally larger than baseincome)
-BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering sectors = baseincome, 6 boardering sectors = baseincome x 4)
+BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering sectors equals baseincome, 6 boardering sectors = baseincome x 4)
 BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store
 SECTORREFUND=90 #The percentage of credits back from selling a sector
 
 #------------------------Game settings----------------------------------------------------------------------------
 
 GATECOST=50 #Number of voting points needed to spawn a gate
-#Gate level stats. GATETEIR[LEVEL]=\"vote-cost warm-up-time cool-down-time\" Can be expanded following the same format infinitely
+#Gate level stats. GATETEIR[LEVEL]equals\"vote-cost warm-up-time cool-down-time\" Can be expanded following the same format infinitely
 GATETEIR[1]=\"0 15 180\"
 GATETEIR[2]=\"2 13 160\"
 GATETEIR[3]=\"3 11 140\"
@@ -247,9 +247,8 @@ if [[ ! -f $CONFIGPATH ]]
 then
 	echo "Creating configuration file please edit configuration file (ie: starmade.cfg) or script may not function as intended"
 # This creates the config file.  This is the only file alteration that does not use as_user.  Therefore the Daemon should be ran by the intended user
-	create_config
 	CREATEHASH=$(md5sum $DAEMONPATH | cut -d" " -f1 | tr -d ' ')
-	as_user "sed -i 's/HASH=.*/HASH=$CREATEHASH/g' $CONFIGPATH"
+	create_config
 	exit	
 else
 	check_config
@@ -2218,7 +2217,7 @@ CONFIGCREATE="cat > $CONFIGPATH <<_EOF_
 #  Logging is for turning on or off with a YES or a NO
 #  Daemon Path is only used if you are going to screen log
 #  Server key is for the rewards and voting function and is setup for http://starmade-servers.com/
-HASH=0
+HASH=$CURRENTHASH
 SERVICE='StarMade.jar' #The name of the .jar file to be run
 USERNAME="$USERNAME" #Your login name
 BACKUP='/home/$USERNAME/starbackup' #The location where all backups created are saved
@@ -2283,16 +2282,16 @@ PIRATECOOLTIMER=300 #The minimum time in seconds between each spawn
 #-------------------------Sector ownership-------------------------------------------------------------------
 
 BEACONNAME='Beacon' #The blueprint name of the sector beacon station (select a station and use /save)
-SECTORCOST=10000000 #The base cost to buy a sector (0 boardering sectors = 100% cost, 6 boardering sectors = 50% cost)
+SECTORCOST=10000000 #The base cost to buy a sector (0 boardering sectors equals 100% cost, 6 boardering sectors equals 50% cost)
 DAILYFEES=700000 #The amount of money a player has to pay each day to maintain the sectors (intentionally larger than baseincome)
-BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering sectors = baseincome, 6 boardering sectors = baseincome x 4)
+BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering sectors equals baseincome, 6 boardering sectors equals baseincome x 4)
 BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store
 SECTORREFUND=90 #The percentage of credits back from selling a sector
 
 #------------------------Game settings----------------------------------------------------------------------------
 
 GATECOST=50 #Number of voting points needed to spawn a gate
-#Gate level stats. GATETEIR[LEVEL]=\"vote-cost warm-up-time cool-down-time\" Can be expanded following the same format infinitely
+#Gate level stats. GATETEIR[LEVEL]equals\"vote-cost warm-up-time cool-down-time\" Can be expanded following the same format infinitely
 GATETEIR[1]=\"0 15 180\"
 GATETEIR[2]=\"2 13 160\"
 GATETEIR[3]=\"3 11 140\"
@@ -2380,67 +2379,65 @@ _EOF_"
 as_user "$CREATETIP"
 }
 update_file() {
-
-#Use sed to extract new file from daemon script into an array
-#Use cat to extract old config file into array
-#Remove the existing config file in case the new config has shrunk in size
-#Go through new file array line by line if = is detected then look into old file array for variable and insert it and write the line if not just write the line for comments, spacing, and whatnot
-
-
-
-
 echo "Starting Update"
 #$2 is the write function to update the old config filename
 #$3 is the name of the specific file for functions like playerfile or factionfile
 OLD_IFS=$IFS
 IFS=$'\n'
-NEWCONFIGARRAY=( $(sed -n "/$2/,/_EOF_\"/p" $DAEMONPATH | sed '$d') )
-echo "Here is the array from Daemon ${NEWCONFIGARRAY[*]}"
-echo "Here is the first line of the newconfigarray ${NEWCONFIGARRAY[1]}"
-PATHUPDATEFILE=$(echo ${NEWCONFIGARRAY[1]} | cut -d$ -f2- | cut -d" " -f1)
-
-
-
+NEWCONFIGARRAY=( $(grep -m 1 -A 2 "$2" $DAEMONPATH) )
 IFS=$OLD_IFS
-
-
-echo "This string is the pathupdatefile $PATHUPDATEFILE"
-if [ "$#" -eq "2" ]
+echo "Here is the array from Daemon $NEWCONFIGARRAY"
+echo "The second line of the config array ${NEWCONFIGARRAY[1]}"
+PATHUPDATEFILE=$(echo ${NEWCONFIGARRAY[1]} | cut -d$ -f2- | cut -d" " -f1)
+PATHUPDATEFILE=${!PATHUPDATEFILE}
+echo "This is the actual path to the file to be updated $PATHUPDATEFILE"
+if [ "$#" -eq "3" ]
 then
-	echo "This is the actual path to the file to be updated ${!PATHUPDATEFILE}"
-	OLDCONFIGARRAY=( $(cat ${!PATHUPDATEFILE}) )
-	echo "Here is the array from file ${OLDCONFIGARRAY[*]}"
-	FILEARRAY=2
-	rm ${!PATHUPDATEFILE}
-	touch ${!PATHUPDATEFILE}
-	while [ -n "${NEWCONFIGARRAY[FILEARRAY]+set}" ]
-	do
-		case "${NEWCONFIGARRAY[FILEARRAY]}" in
-			*"="*) 
-				echo "New format command detected"
-#				FILESETTING=$(
-				
-				;;
-			*":"*) 
-				echo "Old format variable detected"
-
-				
-				;;
-			*) 
-				
-				;;
-			esac
-#			echo "all done"
-	done
-else
-	echo "This is the actual path to the file to be updated ${!PATHUPDATEFILE}/$3"
-
-
+	PATHUPDATEFILE=$PATHUPDATEFILE/$3
+	echo "modified directory $PATHUPDATEFILE"
 fi
+OLD_IFS=$IFS
+IFS=$'\n'
+OLDFILESTRING=( $(cat $PATHUPDATEFILE) )
+as_user "rm $PATHUPDATEFILE"
+$2
+NEWFILESTRING=( $(cat $PATHUPDATEFILE) )
+IFS=$OLD_IFS
+NEWARRAY=0
+as_user "rm $PATHUPDATEFILE"
+while [ -n "${NEWFILESTRING[NEWARRAY]+set}" ]
+do
+	NEWSTR=${NEWFILESTRING[NEWARRAY]}
+	
+	OLDARRAY=0
+	while [ -n "${OLDFILESTRING[OLDARRAY]+set}" ]
+	do
+		if [[ $NEWSTR == *=* ]]
+		then
+			NEWVAR=${NEWSTR%=*}
+			NEWVAL=${NEWSTR##*=}
+			OLDSTR=${OLDFILESTRING[OLDARRAY]}
+			OLDVAR=${OLDSTR%=*}
+			OLDVAL=${OLDSTR##*=}
+			if [ "$OLDVAR" = "$NEWVAR" ]
+			then
+				WRITESTRING=${NEWSTR/$NEWVAL/$OLDVAL} 
+				break
+			fi
+		else
+			WRITESTRING=$NEWSTR
+			
+		fi
+	let OLDARRAY++
+	done
+	echo "$WRITESTRING"
+	cat <<EOF >> $PATHUPDATEFILE
+$WRITESTRING
+EOF
+let NEWARRAY++
+done
 
 }
-
-
 
 #Example Command
 #In the command system, $1 = Playername , $2 = parameter 1 , $3 = parameter 2 , ect
