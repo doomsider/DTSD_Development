@@ -771,14 +771,14 @@ then
 	fi
 	PLASTUPDATE=$(date +%s)
 #echo "Player file last update is $PLASTUPDATE"
-	as_user "sed -i 's/CurrentIP: .*/CurrentIP: $PIP/g' $PLAYERFILE/$1"
-	as_user "sed -i 's/CurrentCredits: .*/CurrentCredits: $PCREDITS/g' $PLAYERFILE/$1"
-	as_user "sed -i 's/PlayerFaction: .*/PlayerFaction: $PFACTION/g' $PLAYERFILE/$1"
-	as_user "sed -i 's/PlayerLocation: .*/PlayerLocation: $PSECTOR/g' $PLAYERFILE/$1"
-	as_user "sed -i 's/PlayerControllingType: .*/PlayerControllingType: $PCONTROLTYPE/g' $PLAYERFILE/$1"
-	as_user "sed -i 's/PlayerControllingObject: .*/PlayerControllingObject: $PCONTROLOBJECT/g' $PLAYERFILE/$1"
-	as_user "sed -i 's/PlayerLastUpdate: .*/PlayerLastUpdate: $PLASTUPDATE/g' $PLAYERFILE/$1"
-	as_user "sed -i 's/PlayerLoggedIn: .*/PlayerLoggedIn: Yes/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/CurrentIP=.*/CurrentIP=$PIP/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/CurrentCredits=.*/CurrentCredits=$PCREDITS/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/PlayerFaction=.*/PlayerFaction=$PFACTION/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/PlayerLocation=.*/PlayerLocation=$PSECTOR/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/PlayerControllingType=.*/PlayerControllingType=$PCONTROLTYPE/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/PlayerControllingObject=.*/PlayerControllingObject=$PCONTROLOBJECT/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/PlayerLastUpdate=.*/PlayerLastUpdate=$PLASTUPDATE/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/PlayerLoggedIn=.*/PlayerLoggedIn=Yes/g' $PLAYERFILE/$1"
 fi
 }
 log_chatlogging() { 
@@ -1016,7 +1016,7 @@ then
 #	echo "This is the ship the player is exiting $SHIPEXITED"
 	IFS=$OLD_IFS
 # The current known sector the player is in
-	SHIPBOARDSECTOR=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')
+	SHIPBOARDSECTOR=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
 #	echo "$PLAYEREXITING got out of $SHIPEXITED"
     OBJECTTYPEOLD=$(grep PlayerControllingType $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')
 # Change Playercontrollingobject to the current name of ship/player and 
@@ -1044,7 +1044,7 @@ then
 #	echo "$SHIPBOARDED is the ship being boarded"
 #   echo "$SBACTIVEOLDSHIP is the old ship player was in"
 # Current last known player sector
-	SHIPBRDSC=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')
+	SHIPBRDSC=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
 #	echo "This is the sector the boarding is taking place $SHIPBRDSC"
 # If the player is found in the player.log then write the new ship to it    
 #	echo "Changing character file to reflect new ship"
@@ -1093,7 +1093,7 @@ then
 	IFS=$OLD_IFS
 #	echo "Space station boarded $STBOARDED"
 # Current last known player sector
-	STATIONBRDSC=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')
+	STATIONBRDSC=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
 #	echo "This is the sector the station is in $STATIONBRDSC"
 	OBJECTTYPEOLD=$(grep PlayerControllingType $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')
 #	echo "This is the old object type the player was controlling $OBJECTTYPEOLD"
@@ -1144,7 +1144,7 @@ then
 	PLANETBOARDED=$(echo $PLANETSTRING | cut -d\( -f7 | cut -d \) -f1)  
 	IFS=$OLD_IFS
 #	echo "Planet $PLANETBOARDED boarded"
-	PLANETCOORDS=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')
+	PLANETCOORDS=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
 #	echo "These are the planets coords $PLANETCOORDS"
 	OBJECTTYPEOLD=$(grep PlayerControllingType $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')
 #	echo "This is the previous object type the player was controlling $OBJECTTYPEOLD"
@@ -1193,9 +1193,9 @@ then
 #		echo "This is the new sector $PLAYERSCSOLOCHANGE"
 	# Find the last sector for the player from player.log
 		PLOLDSCOTYPE=$(grep PlayerControllingType $PLAYERFILE/$PLAYERSCSOLO | cut -d: -f2)
-		PLOLDSCCHANGE=$(grep PlayerLocation $PLAYERFILE/$PLAYERSCSOLO | cut -d: -f2 | tr -d ' ')
+		PLOLDSCCHANGE=$(grep PlayerLocation $PLAYERFILE/$PLAYERSCSOLO | cut -d= -f2 | tr -d ' ')
 #		echo "This was the last object player was in $PLOLDSCOTYPE"
-		as_user "sed -i 's/PlayerLocation: $PLOLDSCCHANGE/PlayerLocation: $PLAYERSCSOLOCHANGE/g' $PLAYERFILE/$PLAYERSCSOLO"
+		as_user "sed -i 's/PlayerLocation=$PLOLDSCCHANGE/PlayerLocation=$PLAYERSCSOLOCHANGE/g' $PLAYERFILE/$PLAYERSCSOLO"
 		universeboarder $PLAYERSCSOLOCHANGE $PLAYERSCSOLO
 		customspawns $PLAYERSCSOLOCHANGE $PLAYERSCSOLO &
 	#----------------------------SHIP---------------------------------------------
@@ -1219,9 +1219,9 @@ then
 	#	echo "This is the ship that is changing sectors $SHIPSC"
 		IFS=$OLD_IFS
 	# New sector changed to from the sector sting
-		OLDSHIPSC=$(grep "PlayerLocation" $PLAYERFILE/$PLAYERSCSHIP | cut -d: -f2 | tr -d ' ')
+		OLDSHIPSC=$(grep "PlayerLocation" $PLAYERFILE/$PLAYERSCSHIP | cut -d= -f2 | tr -d ' ')
 	#	echo "This is the old sector $OLDSHIPSC"
-		as_user "sed -i 's/PlayerLocation: $OLDSHIPSC/PlayerLocation: $PLAYERSCSHIPCHANGE/g' $PLAYERFILE/$PLAYERSCSHIP"
+		as_user "sed -i 's/PlayerLocation=$OLDSHIPSC/PlayerLocation=$PLAYERSCSHIPCHANGE/g' $PLAYERFILE/$PLAYERSCSHIP"
 		if (grep "{$SHIPSC}" $SHIPLOG >/dev/null)
 		then
 			as_user "sed -i 's/{$SHIPSC} .*/{$SHIPSC} \[$PLAYERSCSHIP\] \($PLAYERSCSHIPCHANGE\)/g' $SHIPLOG"
@@ -1251,9 +1251,9 @@ then
 	#	echo "This is the station that is changing sectors $STATIONSC"
 		IFS=$OLD_IFS
 	# New sector changed to from the sector sting
-		OLDSTATIONSC=$(grep "PlayerLocation" $PLAYERFILE/$PLAYERSCSTATION | cut -d: -f2 | tr -d ' ')
+		OLDSTATIONSC=$(grep "PlayerLocation" $PLAYERFILE/$PLAYERSCSTATION | cut -d= -f2 | tr -d ' ')
 	#	echo "This is the old sector $OLDSTATIONSC"
-		as_user "sed -i 's/PlayerLocation: $OLDSTATIONSC/PlayerLocation: $PLAYERSCSTATIONCHANGE/g' $PLAYERFILE/$PLAYERSCSTATION"
+		as_user "sed -i 's/PlayerLocation=$OLDSTATIONSC/PlayerLocation=$PLAYERSCSTATIONCHANGE/g' $PLAYERFILE/$PLAYERSCSTATION"
 		if (grep "{$STATIONSC}" $STATIONLOG >/dev/null)
 		then
 			as_user "sed -i 's/{$STATIONSC} .*/{$STATIONSC} \[$PLAYERSCSTATION\] \($PLAYERSCSTATIONCHANGE\)/g' $STATIONLOG"
@@ -1283,9 +1283,9 @@ then
 	#	echo "This is the planet that is changing sectors $PLANETSC"
 		IFS=$OLD_IFS
 	# New sector changed to from the sector sting
-		OLDPLANETSC=$(grep "PlayerLocation" $PLAYERFILE/$PLAYERSCPLANET | cut -d: -f2 | tr -d ' ')
+		OLDPLANETSC=$(grep "PlayerLocation" $PLAYERFILE/$PLAYERSCPLANET | cut -d= -f2 | tr -d ' ')
 	#	echo "This is the old sector $OLDPLANETSC"
-		as_user "sed -i 's/PlayerLocation: $OLDPLANETSC/PlayerLocation: $PLAYERSCPLANETCHANGE/g' $PLAYERFILE/$PLAYERSCPLANET"
+		as_user "sed -i 's/PlayerLocation=$OLDPLANETSC/PlayerLocation=$PLAYERSCPLANETCHANGE/g' $PLAYERFILE/$PLAYERSCPLANET"
 		if (grep "{$PLANETSC}" $PLANETLOG >/dev/null)
 		then
 			as_user "sed -i 's/{$PLANETSC} .*/{$PLANETSC} \[$PLAYERSCPLANET\] \($PLAYERSCPLANETCHANGE\)/g' $PLANETLOG"
@@ -1384,7 +1384,7 @@ else
 	echo "MessageID: 0 Unread: Yes Sender: MailBoxPro Time: $(date +%s) Message: Welcome to the mail box $INITPLAYER! Type !MAIL HELP to see how to use the mail box!" >> $MAILFILE/$INITPLAYER
 	UNREADCOUNT=1
 fi
-FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$INITPLAYER | cut -d" " -f2)
+FACTION=$(grep "PlayerFaction" $PLAYERFILE/$INITPLAYER | cut -d= -f2)
 if [ -e $MAILFILE/FAC@$FACTION ]
 then
 	FACUNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTION | cut -d" " -f2)
@@ -1659,8 +1659,8 @@ else
 			do
 				PLAYER=$(echo $PLAYER | rev | cut -d"/" -f1 | rev )
 				TOTALVOTES=$(echo $ALLVOTES | tr " " "\n" | grep -A1 ">$PLAYER<" | tr "\n" " " | cut -d">" -f4 | cut -d"<" -f1)
-				VOTINGPOINTS=$(grep "VotingPoints:" $PLAYERFILE/$PLAYER | cut -d":" -f2 | tr -d " " )
-				CURRENTVOTES=$(grep "CurrentVotes:" $PLAYERFILE/$PLAYER | cut -d":" -f2 | tr -d " " )
+				VOTINGPOINTS=$(grep "VotingPoints=" $PLAYERFILE/$PLAYER | cut -d= -f2 | tr -d " " )
+				CURRENTVOTES=$(grep "CurrentVotes=" $PLAYERFILE/$PLAYER | cut -d= -f2 | tr -d " " )
 				if [[ ! -z "$TOTALVOTES" ]]
 				then
 					if [ $TOTALVOTES -ge $CURRENTVOTES ]
@@ -1670,8 +1670,8 @@ else
 						ADDVOTES=$TOTALVOTES
 					fi
 					VOTESSAVED=$(($VOTINGPOINTS+$ADDVOTES))
-					as_user "sed -i 's/VotingPoints: .*/VotingPoints: $VOTESSAVED/g' $PLAYERFILE/$PLAYER"
-					as_user "sed -i 's/CurrentVotes: .*/CurrentVotes: $TOTALVOTES/g' $PLAYERFILE/$PLAYER"
+					as_user "sed -i 's/VotingPoints=.*/VotingPoints=$VOTESSAVED/g' $PLAYERFILE/$PLAYER"
+					as_user "sed -i 's/CurrentVotes=.*/CurrentVotes=$TOTALVOTES/g' $PLAYERFILE/$PLAYER"
 					if [ $ADDVOTES -gt 0 ]
 					then
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/chat $PLAYER just got $ADDVOTES point(s) for voting! You can get voting points too by going to starmade-servers.com!\n'"
@@ -1773,8 +1773,8 @@ do
 	for FACTION in $FACTIONFILE/*
 	do
 		FACTIONID=$(echo $FACTION | rev | cut -d"/" -f1 | rev)
-		OWNEDSECTORS=($(grep "OwnedSectors:" $FACTION | cut -d":" -f2-))
-		FACTIONCREDITS=$(grep "CreditsInBank:" $FACTION | cut -d" " -f2)
+		OWNEDSECTORS=($(grep "OwnedSectors=" $FACTION | cut -d"=" -f2-))
+		FACTIONCREDITS=$(grep "CreditsInBank=" $FACTION | cut -d= -f2)
 		FEES=$(echo "(${#OWNEDSECTORS[@]}*$DAILYFEES)/24" | bc -l | cut -d"." -f1)
 		FACTIONCREDITS=$(($FACTIONCREDITS-$FEES))
 		if [ $FACTIONCREDITS -lt 0 ] && [ $(($FACTIONCREDITS+$FEES)) -gt 0 ] && [ $FEES -gt 0 ]
@@ -1799,13 +1799,13 @@ do
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all $BEACONNAME unused false\n'"
 			sectoradjacent $FACTIONID
 		fi
-		as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $FACTIONCREDITS/g' $FACTION"
+		as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$FACTIONCREDITS/g' $FACTION"
 	done
 sleep 3600
 done
 }
 sectoradjacent(){
-FACTIONSECTORS=$(grep "OwnedSectors:" $FACTIONFILE/$1 | cut -d" " -f2-)
+FACTIONSECTORS=$(grep "OwnedSectors=" $FACTIONFILE/$1 | cut -d= -f2-)
 for SECTOR in $FACTIONSECTORS
 do
 	XCOORD=$(echo $SECTOR | cut -d"," -f1)
@@ -1841,38 +1841,6 @@ done
 
 #---------------------------Files Daemon Writes and Updates---------------------------------------------
 
-create_playerfile(){
-if [[ ! -f $PLAYERFILE/$1 ]]
-then
-#	echo "File not found"
-	write_playerfile $1
-fi
-}
-create_factionfile(){
-if [[ ! -f $FACTIONFILE/$1 ]]
-then
-#	echo "File not found"
-	write_factionfile $1
-fi
-}
-create_rankscommands(){
-if [ ! -e $RANKCOMMANDS ]
-then
-	write_rankcommands
-fi
-}
-create_barredwords(){
-if [ ! -e $BARREDWORDS ]
-then
-	write_barredwords
-fi
-}
-create_tipfile(){
-if [ ! -e $TIPFILE ]
-then
-	write_tipfile
-fi
-}
 write_factionfile() { #Must update how all these variables for grep and sed due to = change. Parameter of Faction must be passed
 CREATEFACTION="cat > $FACTIONFILE/$1 <<_EOF_
 CreditsInBank=0
@@ -2042,7 +2010,7 @@ as_user "$CREATERANK"
 }
 write_tipfile() {
 CREATETIP="cat > $TIPFILE <<_EOF_
-!HELP is your fried! If you are stuck on a command, use !HELP <Command>
+!HELP is your friend! If you are stuck on a command, use !HELP <Command>
 Want to get from place to place quickly? Try !FOLD
 Ever wanted to be rewarded for voting for the server? Vote now at starmade-servers.org to get voting points!
 Been voting a lot lately? You can spend your voting points on a Jump Gate! Try !ADDJUMP 
@@ -2058,68 +2026,90 @@ Want to secretly use a command? Try using a command inside a PM to yourself!
 _EOF_"
 as_user "$CREATETIP"
 }
+create_tipfile(){
+if [ ! -e $TIPFILE ]
+then
+	write_tipfile
+fi
+}
+create_playerfile(){
+if [[ ! -f $PLAYERFILE/$1 ]]
+then
+#	echo "File not found"
+	write_playerfile $1
+fi
+}
+create_factionfile(){
+if [[ ! -f $FACTIONFILE/$1 ]]
+then
+#	echo "File not found"
+	write_factionfile $1
+fi
+}
+create_rankscommands(){
+if [ ! -e $RANKCOMMANDS ]
+then
+	write_rankcommands
+fi
+}
+create_barredwords(){
+if [ ! -e $BARREDWORDS ]
+then
+	write_barredwords
+fi
+}
 update_file() {
-echo "Starting Update"
-#$2 is the write function to update the old config filename
-#$3 is the name of the specific file for functions like playerfile or factionfile
-OLD_IFS=$IFS
-IFS=$'\n'
-# Grab an array from the Daemon file itself to be used to determine correct path
-NEWCONFIGARRAY=( $(grep -m 1 -A 2 "$2" $DAEMONPATH) )
-IFS=$OLD_IFS
-echo "Here is the array from Daemon $NEWCONFIGARRAY"
-echo "The second line of the config array ${NEWCONFIGARRAY[1]}"
-# Extract the path from the array
-PATHUPDATEFILE=$(echo ${NEWCONFIGARRAY[1]} | cut -d$ -f2- | cut -d" " -f1)
-# Set the path to what the source of the config file value is
-PATHUPDATEFILE=${!PATHUPDATEFILE}
-echo "This is the actual path to the file to be updated $PATHUPDATEFILE"
-# Add to the path if a file location is needed
+#echo "Starting Update"
+#echo "$2 is the write function to update the old config filename"
+#echo "$3 is the name of the specific file for functions like playerfile or factionfile"
+# Grab first occurrence of value from the Daemon file itself to be used to determine correct path
+DLINE=$(grep -n -m 1 $2 $DAEMONPATH | cut -d : -f 1)
+#echo "This is the starting line for the write function $DLINE"
+let DLINE++
+EXTRACT=$(sed -n "${DLINE}p" $DAEMONPATH)
+#echo "Here is the second line of write funtion $EXTRACT"
 if [ "$#" -eq "3" ]
 then
-	PATHUPDATEFILE=$PATHUPDATEFILE/$3
-	echo "modified directory $PATHUPDATEFILE"
+	PATHUPDATEFILE=$(echo $EXTRACT | cut -d$ -f2- | cut -d/  -f1)
+#	echo "Extraction from Daemon $PATHUPDATEFILE"
+	PATHUPDATEFILE=${!PATHUPDATEFILE}/$3
+#	echo "modified directory $PATHUPDATEFILE"
+else
+	PATHUPDATEFILE=$(echo $EXTRACT | cut -d$ -f2- | cut -d" " -f1)
+#	echo "This is what was extracted from the Daemon $PATHUPDATEFILE"
+# Set the path to what the source of the config file value is
+	PATHUPDATEFILE=${!PATHUPDATEFILE}
+	cp $PATHUPDATEFILE $PATHUPDATEFILE.old
 fi
+#echo "This is the actual path to the file to be updated $PATHUPDATEFILE"
+#This is how you would compare files for future work ARRAY=( $(grep -n -Fxvf test1 test2) )
 OLD_IFS=$IFS
 IFS=$'\n'
 # Create an array of the old file
 OLDFILESTRING=( $(cat $PATHUPDATEFILE) )
 as_user "rm $PATHUPDATEFILE"
-# $2 is the write file function for the file being updated
-$2
+# $2 is the write file function for the file being updated and if $3 is set it will use specific file
+$2 $3
 # Put the newly written file into an array
 NEWFILESTRING=( $(cat $PATHUPDATEFILE) )
 IFS=$OLD_IFS
 NEWARRAY=0
 as_user "rm $PATHUPDATEFILE"
 # The following rewrites the config file and preserves values from the old configuration file 
-while [ -n "${NEWFILESTRING[NEWARRAY]+set}" ]
+while [ -n "${NEWFILESTRING[$NEWARRAY]+set}" ]
 do
-	NEWSTR=${NEWFILESTRING[NEWARRAY]}
+	NEWSTR=${NEWFILESTRING[$NEWARRAY]}
 	OLDARRAY=0
-	while [ -n "${OLDFILESTRING[OLDARRAY]+set}" ]
+	while [ -n "${OLDFILESTRING[$OLDARRAY]+set}" ]
 	do
 # If a = is detected grab the value to the right of = and then overwrite the new value
 	if [[ $NEWSTR == *=* ]]
 	then
 		NEWVAR=${NEWSTR%=*}
 		NEWVAL=${NEWSTR##*=}
-		OLDSTR=${OLDFILESTRING[OLDARRAY]}
+		OLDSTR=${OLDFILESTRING[$OLDARRAY]}
 		OLDVAR=${OLDSTR%=*}
 		OLDVAL=${OLDSTR##*=}
-		if [ "$OLDVAR" = "$NEWVAR" ]
-		then
-			WRITESTRING=${NEWSTR/$NEWVAL/$OLDVAL} 
-			break
-		fi
-# If the old format for files is found get the values and over right the new file values
-	elif [[ $NEWSTR == *:* ]]
-	then
-		NEWVAR=${NEWSTR% *}
-		NEWVAL=${NEWSTR##* }
-		OLDSTR=${OLDFILESTRING[OLDARRAY]}
-		OLDVAR=${OLDSTR% *}
-		OLDVAL=${OLDSTR##* }
 		if [ "$OLDVAR" = "$NEWVAR" ]
 		then
 			WRITESTRING=${NEWSTR/$NEWVAL/$OLDVAL} 
@@ -2130,7 +2120,7 @@ do
 	fi
 	let OLDARRAY++
 	done
-	echo "$WRITESTRING"
+#	echo "$WRITESTRING"
 	cat <<EOF >> $PATHUPDATEFILE
 $WRITESTRING
 EOF
@@ -2171,13 +2161,13 @@ then
 else
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Connecting to servers\n'"
 	log_playerinfo $1
-	FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+	FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
 	if [ ! $FACTION = "None" ]
 	then
 		create_factionfile $FACTION
-		FACTIONCREDITS=$(grep "CreditsInBank:" $FACTIONFILE/$FACTION | cut -d" " -f2)
-		FACTIONSECTORS=$(grep "OwnedSectors:" $FACTIONFILE/$FACTION | cut -d" " -f2-)
-		PLAYERSECTOR=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+		FACTIONCREDITS=$(grep "CreditsInBank" $FACTIONFILE/$FACTION | cut -d= -f2)
+		FACTIONSECTORS=$(grep "OwnedSectors" $FACTIONFILE/$FACTION | cut -d= -f2-)
+		PLAYERSECTOR=$(grep "PlayerLocation" $PLAYERFILE/$1 | cut -d= -f2)
 		if [ ! -f $SECTORFILE ]
 		then
 			as_user "touch $SECTORFILE"
@@ -2215,8 +2205,8 @@ else
 				FACTIONCREDITS=$(($FACTIONCREDITS - $THISSECTORCOST))
 				BEACONID="Sector_Claim_Unit_F:${FACTION}_ID:$(date +%s)$RANDOM"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Due to the $NEIGHBOURSECTORS adjacent sectors you own, this sector costs $THISSECTORCOST credits\n'"
-				as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
-				as_user "sed -i 's/OwnedSectors: .*/OwnedSectors: $FACTIONSECTORS $PLAYERSECTOR/g' $FACTIONFILE/$FACTION"
+				as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
+				as_user "sed -i 's/OwnedSectors=.*/OwnedSectors=$FACTIONSECTORS $PLAYERSECTOR/g' $FACTIONFILE/$FACTION"
 				echo " $PLAYERSECTOR $FACTION $NEIGHBOURSECTORS 0 $BEACONID $THISSECTORCOST" >> $SECTORFILE
 				echo "[$PLAYERSECTOR]" >> $PROTECTEDSECTORS
 				sleep 0.2
@@ -2248,7 +2238,7 @@ then
 else
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Gathering sector information...\n'"
 	log_playerinfo $1
-	FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+	FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
 	if [ ! $FACTION = "None" ]
 	then
 		while read SECTOR
@@ -2274,10 +2264,10 @@ then
 else
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Gathering sector information...\n'"
 	log_playerinfo $1
-	FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+	FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
 	if [ ! $FACTION = "None" ]
 	then
-		SECTOR=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+		SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
 		if grep -q -- " $SECTOR " $SECTORFILE
 		then
 			SECTORDATA=($(grep -- " $SECTOR " $SECTORFILE))
@@ -2285,13 +2275,13 @@ else
 			then
 				if [ $(echo $2 | tr [a-z] [A-Z]) = "ALL" ]
 				then
-					FACTIONCREDITS=$(($(grep "CreditsInBank:" $FACTIONFILE/$FACTION | cut -d" " -f2) + ${SECTORDATA[3]}))
+					FACTIONCREDITS=$(($(grep "CreditsInBank" $FACTIONFILE/$FACTION | cut -d= -f2) + ${SECTORDATA[3]}))
 					SECTORDATA[3]=0
 				else
 					SECTORDATA[3]=$((${SECTORDATA[3]} - $2))
-					FACTIONCREDITS=$(($(grep "CreditsInBank:" $FACTIONFILE/$FACTION | cut -d" " -f2) + $2))
+					FACTIONCREDITS=$(($(grep "CreditsInBank=" $FACTIONFILE/$FACTION | cut -d= -f2) + $2))
 				fi
-				as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
+				as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
 				as_user "sed -i 's/ ${SECTORDATA[0]} .*/ $(echo ${SECTORDATA[@]})/g' $SECTORFILE"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - You have taken $2 credits from beacon $(echo ${SECTORDATA[4]} | cut -d"_" -f5) in sector ${SECTORDATA[1]}\n'"
 			else
@@ -2314,10 +2304,10 @@ then
 else
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Gathering sector information...\n'"
 	log_playerinfo $1
-	FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+	FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
 	if [ ! $FACTION = "None" ]
 	then
-		SECTOR=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+		SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
 		if grep -q -- " $SECTOR " $SECTORFILE
 		then
 			SECTORDATA=($(grep -- " $SECTOR " $SECTORFILE))
@@ -2344,17 +2334,17 @@ then
 else
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Gathering sector information...\n'"
 	log_playerinfo $1
-	FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+	FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
 	if [ ! $FACTION = "None" ]
 	then
-		SECTOR=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+		SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
 		if grep -q -- " $SECTOR " $SECTORFILE
 		then
 			SECTORDATA=($(grep -- " $SECTOR " $SECTORFILE))
 			if [ $FACTION -eq ${SECTORDATA[1]} ]
 			then
-				FACTIONCREDITS=$(($(grep "CreditsInBank:" $FACTIONFILE/$FACTION | cut -d" " -f2) + ${SECTORDATA[3]} + (${SECTORDATA[5]} * $SECTORREFUND / 100)))
-				as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
+				FACTIONCREDITS=$(($(grep "CreditsInBank" $FACTIONFILE/$FACTION | cut -d= -f2) + ${SECTORDATA[3]} + (${SECTORDATA[5]} * $SECTORREFUND / 100)))
+				as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$FACTIONCREDITS/g' $FACTIONFILE/$FACTION"
 				as_user "sed -i '/ ${SECTORDATA[0]} .*/d' $SECTORFILE"
 				as_user "sed -i 's/ ${SECTORDATA[0]}//g' $FACTIONFILE/$FACTION"
 				as_user "sed -i '/^.*${SECTOR}.*/d' $PROTECTEDSECTORS"
@@ -2583,7 +2573,7 @@ function COMMAND_FMAIL(){
 			else
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Validating mailbox access code. Please wait...\n'"
 				log_playerinfo $1
-				FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+				FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
 #				Checks if the player has a mail file. If not, make it with one new message from MailBoxPro welcoming the player to the mail box
 				if [ ! -e $MAILFILE/FAC@$FACTION ]
 				then
@@ -2643,7 +2633,7 @@ function COMMAND_FMAIL(){
 			else
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Validating mailbox access code. Please wait...\n'"
 				log_playerinfo $1
-				FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+				FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
 #				Checks if the player has a mail file. If not, make it with one new message from MailBoxPro welcoming the player to the mail box
 				if [ ! -e $MAILFILE/FAC@$FACTION ]
 				then
@@ -2699,7 +2689,7 @@ function COMMAND_FMAIL(){
 			else
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Validating mailbox access code. Please wait...\n'"
 				log_playerinfo $1
-				FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+				FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
 #				Checks if the player has a mail file. If not, make it with one new message from MailBoxPro welcoming the player to the mail box
 				if [ ! -e $MAILFILE/FAC@$FACTION ]
 				then
@@ -2767,7 +2757,7 @@ then
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !POSTBOUNTY <player> <amount>\n'"
 else
 #	echo "$1 wants to place a $3 credit bounty on $2"
-	BALANCECREDITS=$(grep CreditsInBank: $PLAYERFILE/$1 | cut -d: -f2 | tr -d ' ')
+	BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2 | tr -d ' ')
 #	echo "Current bank credits are $BALANCECREDITS"
 	if [ "$1" = "$2" ]
 	then
@@ -2781,7 +2771,7 @@ else
 			then
 				if [ "$3" -le "$BALANCECREDITS" ]
 				then
-					OLDBOUNTY=$(grep Bounty $PLAYERFILE/$2 | cut -d" " -f2)
+					OLDBOUNTY=$(grep Bounty $PLAYERFILE/$2 | cut -d= -f2 | cut -d" " -f1)
 #					echo "The old bounty is $OLDBOUNTY"
 #					echo "Current bounty found"
 					CURRENTBOUNTY=$(( $OLDBOUNTY + $3 ))
@@ -2789,12 +2779,12 @@ else
 					NEWBALANCE=$(( $BALANCECREDITS - $3 ))
 					if [ "$OLDBOUNTY" -eq "0" ]
 					then
-						as_user "sed -i 's/Bounty: .*/Bounty: $CURRENTBOUNTY $(date +%s)/g' $PLAYERFILE/$2"
-						as_user "sed -i 's/CreditsInBank: $BALANCECREDITS/CreditsInBank: $NEWBALANCE/g' $PLAYERFILE/$1"
+						as_user "sed -i 's/Bounty=.*/Bounty=$CURRENTBOUNTY $(date +%s)/g' $PLAYERFILE/$2"
+						as_user "sed -i 's/CreditsInBank=$BALANCECREDITS/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - You have placed a bounty of $3 on $2\n'"
 					else
-						as_user "sed -i 's/Bounty: $OLDBOUNTY/Bounty: $CURRENTBOUNTY/g' $PLAYERFILE/$2"
-						as_user "sed -i 's/CreditsInBank: $BALANCECREDITS/CreditsInBank: $NEWBALANCE/g' $PLAYERFILE/$1"
+						as_user "sed -i 's/Bounty=$OLDBOUNTY/Bounty=$CURRENTBOUNTY/g' $PLAYERFILE/$2"
+						as_user "sed -i 's/CreditsInBank=$BALANCECREDITS/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - You have placed a bounty of $3 on $2\n'"
 				
 					fi
@@ -2815,12 +2805,12 @@ if [ "$#" -ne "1" ]
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !LISTBOUNTY\n'"
 	else
-		for BOUNTY in $PLAYERFILE/*
+		for PBOUNTY in $PLAYERFILE/*
 		do
-			BOUNTYAMMOUNT=$(grep "Bounty" $BOUNTY | cut -d" " -f2)
+			BOUNTYAMMOUNT=$(grep "Bounty" $BOUNTY | cut -d= -f2 | cut -d" " -f1)
 			if [ "$BOUNTYAMMOUNT" -gt "0" ]
 			then
-			BOUNTYNAME=$(echo $BOUNTY | rev | cut -d/ -f1 | rev)
+			BOUNTYNAME=$(echo $PBOUNTY | rev | cut -d/ -f1 | rev)
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $BOUNTYNAME - $BOUNTYAMMOUNT credits\n'"
 			fi
 		done
@@ -2838,8 +2828,8 @@ then
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !COLLECTBOUNTY <playername>\n'"
 else
 #	echo "$1 is trying to collect a bounty"
-	BOUNTYAMOUNT=$(grep Bounty $PLAYERFILE/$2 | cut -d" " -f2)
-	BOUNTYTIME=$(grep Bounty $PLAYERFILE/$2 | cut -d" " -f3)
+	BOUNTYAMOUNT=$(grep Bounty $PLAYERFILE/$2 | cut -d= -f2 | cut -d" " -f1)
+	BOUNTYTIME=$(grep Bounty $PLAYERFILE/$2 | cut -d" " -f2)
 #	echo "This is the bounty amount for $2 $BOUNTYAMOUNT"
 	if [ "$BOUNTYAMOUNT" -eq 0 ]
 	then
@@ -2862,12 +2852,12 @@ else
 			if [ "$BOUNTYTIME" -lt "$LASTKILLEDTIME" ]
 			then
 #				echo "Bounty posted before kill"					
-				PLAYERBALANCE=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d" " -f2)
+				PLAYERBALANCE=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2)
 #				echo "This is the player balance $PLAYERBALANCE that is recieving the bounty"
 				NEWBALANCE=$(( $PLAYERBALANCE + $BOUNTYAMOUNT ))
 #				echo "This is the new player balance $NEWBALACE"
-				as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $NEWBALANCE/g' $PLAYERFILE/$1"
-				as_user "sed -i 's/Bounty: .*/Bounty: 0/g' $PLAYERFILE/$2"
+				as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
+				as_user "sed -i 's/Bounty=.*/Bounty=0/g' $PLAYERFILE/$2"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - You received $BOUNTYAMOUNT credits in you account from eliminating $2\n'"
 			else
 #				echo "Bounty posted after kill"
@@ -2894,7 +2884,7 @@ function COMMAND_FOLD(){
 			ADJUSTEDTIME=$(( $CURRENTTIME - 600 ))
 			if [ "$ADJUSTEDTIME" -gt "$OLDPLAYERLASTFOLD" ]
 			then
-				SECTOR[$1]=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+				SECTOR[$1]=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
 				DISTANCE=$(echo "($(echo ${SECTOR[$1]} | cut -d"," -f1)- $2)^2+($(echo ${SECTOR[$1]} | cut -d"," -f2)- $3)^2+($(echo ${SECTOR[$1]} | cut -d"," -f3)- $4)^2" | bc)
 				if [ "$DISTANCE" -le "$FOLDLIMIT" ]
 				then
@@ -2956,7 +2946,7 @@ function COMMAND_ADDJUMP(){
 		if ! grep -q $2 $GATELOG
 		then
 #			Gets players location and faction
-			SECTOR[$1]=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+			SECTOR[$1]=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
 			CONTROLLINGOBJECT[$1]=$(grep "PlayerControllingObject:" $PLAYERFILE/$1 | cut -d" " -f2)
 			CONTROLLINGTYPE[$1]=$(grep "PlayerControllingType:" $PLAYERFILE/$1 | cut -d" " -f2)
 			if [[ "$CONTROLLINGTYPE" == "Spacestation" ]]
@@ -2964,12 +2954,12 @@ function COMMAND_ADDJUMP(){
 				if ! grep -q ${SECTOR[$1]} $GATELOG
 				then
 #					Checks if player can afford the gate
-					VOTINGPOINTS=$(grep "VotingPoints:" $PLAYERFILE/$1 | cut -d" " -f2)
+					VOTINGPOINTS=$(grep "VotingPoints=" $PLAYERFILE/$1 | cut -d= -f2)
 					if [ $VOTINGPOINTS -ge $GATECOST ]
 					then
 #						Removes the cost of the gate from the players voting points
 						let "VOTESSAVED=$VOTINGPOINTS-$GATECOST"
-						as_user "sed -i 's/VotingPoints: $VOTINGPOINTS/VotingPoints: $VOTESSAVED/g' $PLAYERFILE/$1"
+						as_user "sed -i 's/VotingPoints=$VOTINGPOINTS/VotingPoints=$VOTESSAVED/g' $PLAYERFILE/$1"
 #						Add the gate to the gates.log file
 						echo "Name: $2 Sector: ${SECTOR[$1]} Level: 1 Creator: $1 TotalCost: $GATECOST LinkedEntity: ${CONTROLLINGOBJECT[$1]}" >> $GATELOG
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 If someone destroys the station ${CONTROLLINGOBJECT[$1]} the the gate will be destroyed and you will not be refunded\n'"
@@ -3016,9 +3006,9 @@ function COMMAND_JUMP(){
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !JUMP <Destination Name>\n'"
 	else
-		if [[ $(grep "JumpDisabled:" $PLAYERFILE/$1 | cut -d" " -f2) -le $(date +%s) ]]
+		if [[ $(grep "JumpDisabled=" $PLAYERFILE/$1 | cut -d= -f2) -le $(date +%s) ]]
 		then
-			SECTOR[$1]=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+			SECTOR[$1]=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
 			CONTROLLINGTYPE[$1]=$(grep "PlayerControllingType:" $PLAYERFILE/$1 | cut -d" " -f2)
 			if [[ "${CONTROLLINGTYPE[$1]}" == "Ship" ]]
 			then
@@ -3038,7 +3028,7 @@ function COMMAND_JUMP(){
 #							Prepares for jump
 							WARMUP=$(echo ${GATETEIR[${GATEINFO[5]}]} | cut -d" " -f2)
 							COOLTIME=$(($(date +%s)+$(echo ${GATETEIR[${GATEINFO[5]}]} | cut -d" " -f3)+$WARMUP))
-							as_user "sed -i 's/JumpDisabled: $(grep "JumpDisabled:" $PLAYERFILE/$1 | cut -d" " -f2)/JumpDisabled: $COOLTIME/g' $PLAYERFILE/$1"
+							as_user "sed -i 's/JumpDisabled=$(grep "JumpDisabled=" $PLAYERFILE/$1 | cut -d= -f2)/JumpDisabled=$COOLTIME/g' $PLAYERFILE/$1"
 							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your ship is preparing for a Jump! Please dont leave the vacinity of the jumpgate or your Jump will fail!\n'"
 							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Jump in...\n'"
 #							Sets the time delay before the player is teleported, based on the level of the gate
@@ -3051,7 +3041,7 @@ function COMMAND_JUMP(){
 							done
 #							Gets the players sector again, to make sure theyre in the same sector still
 							SECTORA=${SECTOR[$1]}
-							SECTOR[$1]=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+							SECTOR[$1]=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
 							CONTROLLINGTYPE[$1]=$(grep "PlayerControllingType:" $PLAYERFILE/$1 | cut -d" " -f2)
 							if [[ "$SECTORA" == "${SECTOR[$1]}" ]] && [[ "${CONTROLLINGTYPE[$1]}" == "Ship" ]]
 							then
@@ -3075,11 +3065,11 @@ function COMMAND_JUMP(){
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You cannot jump unless you are in a ship!\n'"
 			fi
 		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your ships engines are still cooling down from your last jump. They will take roughly $(($(grep "JumpDisabled:" $PLAYERFILE/$1 | cut -d" " -f2)-$(date +%s))) seconds\n'"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your ships engines are still cooling down from your last jump. They will take roughly $(($(grep "JumpDisabled=" $PLAYERFILE/$1 | cut -d= -f2)-$(date +%s))) seconds\n'"
 		fi
 	fi
 }
-function COMMAND_UPGRADEJUMP(){ 
+function COMMAND_UPGRADEJUMP(){ #Look at let statements with cutting of " " for compatability with new = format
 #Increases the teir of the specified jump gate by 1 at the cost of voting points. This reduces warm up and cooldown time.
 #USAGE: !UPGRADEJUMP <JumpName>
 	if [ "$#" -ne "2" ]
@@ -3089,7 +3079,7 @@ function COMMAND_UPGRADEJUMP(){
 #		Checks if the gate exists		
 		if grep -q -- $2 $GATELOG
 		then
-			SECTOR[$1]=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+			SECTOR[$1]=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
 			GATEINFO=($(grep -- " $2 " $GATELOG))
 #			Checks if the player has faction permission to upgrade the gate, or if the gate is faction All, check if theyre the creator of it	
 			if [[ "${GATEINFO[7]}" == "$1" ]]
@@ -3098,12 +3088,12 @@ function COMMAND_UPGRADEJUMP(){
 				if [ "${GATEINFO[5]}" -lt "${#GATETEIR[@]}" ]
 				then
 #					Checks if the player has enough voting points to upgrade the gate
-					VOTINGPOINTS=$(grep "VotingPoints:" $PLAYERFILE/$1 | cut -d" " -f2)
+					VOTINGPOINTS=$(grep "VotingPoints=" $PLAYERFILE/$1 | cut -d= -f2)
 					if [ $VOTINGPOINTS -ge $(echo ${GATETEIR[$((${GATEINFO[5]}+1))]} | cut -d" " -f1) ]
 					then
 #						Subtracts the cost of the upgrade from the players account
 						let "VOTESSAVED=$VOTINGPOINTS-$(echo ${GATETEIR[$((${GATEINFO[5]}+1))]} | cut -d" " -f1)"
-						as_user "sed -i 's/VotingPoints: .*/VotingPoints: $VOTESSAVED/g' $PLAYERFILE/$1"
+						as_user "sed -i 's/VotingPoints=.*/VotingPoints=$VOTESSAVED/g' $PLAYERFILE/$1"
 #						Alters the total cost of the gate so far
 						let "TOTALCOST=${GATEINFO[9]}+$(echo ${GATETEIR[$((${GATEINFO[5]}+1))]} | cut -d" " -f1)"
 #						edits the level of the gate
@@ -3135,15 +3125,15 @@ function COMMAND_DESTROYJUMP(){
 #		Checks if the gate exists
 		if grep -q -- $2 $GATELOG
 		then
-			SECTOR[$1]=$(grep "PlayerLocation:" $PLAYERFILE/$1 | cut -d" " -f2)
+			SECTOR[$1]=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
 			GATEINFO=($(grep -- " $2 " $GATELOG))
 #			Checks if the player owns the gate
 			if [[ "${GATEINFO[7]}" == "$1" ]]
 			then
 				as_user "sed -i '/Name: ${GATEINFO[1]} .*/d' $GATELOG"
-				VOTINGPOINTS=$(grep "VotingPoints:" $PLAYERFILE/$1 | cut -d" " -f2)
+				VOTINGPOINTS=$(grep "VotingPoints=" $PLAYERFILE/$1 | cut -d= -f2)
 				let "VOTESSAVED=$VOTINGPOINTS+$((${GATEINFO[9]}*$GATEREFUND/100))"
-				as_user "sed -i 's/VotingPoints: .*/VotingPoints: $VOTESSAVED/g' $PLAYERFILE/$1"
+				as_user "sed -i 's/VotingPoints=.*/VotingPoints=$VOTESSAVED/g' $PLAYERFILE/$1"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 The gate $2 has been deleted! You got $((${GATEINFO[9]}*$GATEREFUND/100)) voting points back\n'"
 			else
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You dont have permission to delete that gate!\n'"
@@ -3236,9 +3226,9 @@ function COMMAND_DEPOSIT(){
 #			echo "Adjusted time to remove 10 seconds $ADJUSTEDTIME"
 			if [ "$OLDTIME" -ge "$ADJUSTEDTIME" ]
 			then
-				BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d" " -f2- |  tr -d ' ')
+				BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2- |  tr -d ' ')
 #				echo $BALANCECREDITS
-				CREDITSTOTAL=$(grep CurrentCredits $PLAYERFILE/$1 | cut -d" " -f2- |  tr -d ' ')  
+				CREDITSTOTAL=$(grep CurrentCredits $PLAYERFILE/$1 | cut -d= -f2- |  tr -d ' ')  
 #				echo "Credits in log $CREDITTOTAL"
 #				echo "Total credits are $CREDITSTOTAL on person and $BALANCECREDITS in bank"
 #				echo "Credits to be deposited $2 "
@@ -3248,9 +3238,9 @@ function COMMAND_DEPOSIT(){
 					NEWBALANCE=$(( $2 + $BALANCECREDITS ))
 					NEWCREDITS=$(( $CREDITSTOTAL - $2 ))
 #					echo "new bank balance is $NEWBALANCE"
-					as_user "sed -i 's/CurrentCredits: $CREDITSTOTAL/CurrentCredits: $NEWCREDITS/g' $PLAYERFILE/$1"
-					as_user "sed -i 's/CreditsInBank: $BALANCECREDITS/CreditsInBank: $NEWBALANCE/g' $PLAYERFILE/$1"
-					#					as_user "sed -i '4s/.*/CreditsInBank: $NEWBALANCE/g' $PLAYERFILE/$1"
+					as_user "sed -i 's/CurrentCredits=$CREDITSTOTAL/CurrentCredits=$NEWCREDITS/g' $PLAYERFILE/$1"
+					as_user "sed -i 's/CreditsInBank=$BALANCECREDITS/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
+					#					as_user "sed -i '4s/.*/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/give_credits $1 -$2\n'"
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK You successfully deposited $2 credits\n'"
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK Your balance is now $NEWBALANCE\n'"
@@ -3283,14 +3273,14 @@ function COMMAND_WITHDRAW(){
 		else
 #			echo "Withdraw $2"
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - Connecting to servers\n'"
-			BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d: -f2 | tr -d ' ')
+			BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2 | tr -d ' ')
 #			echo "bank balance is $BALANCECREDITS"
 			if [ "$2" -le "$BALANCECREDITS" ]
 			then
 				NEWBALANCE=$(( $BALANCECREDITS - $2 ))
 #				echo "new balance for bank account is $NEWBALANCE"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/give_credits $1 $2\n'"
-				as_user "sed -i 's/CreditsInBank: $BALANCECREDITS/CreditsInBank: $NEWBALANCE/g' $PLAYERFILE/$1"
+				as_user "sed -i 's/CreditsInBank=$BALANCECREDITS/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK You successfully withdrawn $2 credits\n'"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK Your balance is $NEWBALANCE credits\n'"
 				as_user "echo '$1 witdrew $2' >> $BANKLOG"
@@ -3315,17 +3305,17 @@ function COMMAND_TRANSFER(){
 		if [ -e $PLAYERFILE/$2 ] >/dev/null 
 		then
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - Connecting to servers\n'"
-			BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d: -f2 | tr -d ' ')
+			BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2 | tr -d ' ')
 #			echo "Player transferring has $BALANCECREDITS in account"
 			if [ "$3" -lt "$BALANCECREDITS" ]
 			then
-				TRANSFERBALANCE=$(grep CreditsInBank $PLAYERFILE/$2 | cut -d: -f2 | tr -d ' ')
+				TRANSFERBALANCE=$(grep CreditsInBank $PLAYERFILE/$2 | cut -d= -f2 | tr -d ' ')
 #				echo "Player receiving has $TRANSFERBALANCE in his account"
 				NEWBALANCETO=$(( $3 + $TRANSFERBALANCE ))
 				NEWBALANCEFROM=$(( $BALANCECREDITS - $3 ))
 #				echo "Changing $1 account to $NEWBALANCEFROM and $2 account to $NEWBALANCETO"
-				as_user "sed -i 's/CreditsInBank: $BALANCECREDITS/CreditsInBank: $NEWBALANCEFROM/g' $PLAYERFILE/$1"
-				as_user "sed -i 's/CreditsInBank: $TRANSFERBALANCE/CreditsInBank: $NEWBALANCETO/g' $PLAYERFILE/$2"
+				as_user "sed -i 's/CreditsInBank=$BALANCECREDITS/CreditsInBank=$NEWBALANCEFROM/g' $PLAYERFILE/$1"
+				as_user "sed -i 's/CreditsInBank=$TRANSFERBALANCE/CreditsInBank=$NEWBALANCETO/g' $PLAYERFILE/$2"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK - You sent $3 credits to $2\n'"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK - Your balance is now $NEWBALANCEFROM\n'"
 				as_user "echo '$1 transferred to $2 in the amount of $3' >> $BANKLOG"
@@ -3345,7 +3335,7 @@ function COMMAND_BALANCE(){
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !BALANCE\n'"
 	else
-	BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d: -f2 | tr -d ' ')
+	BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2 | tr -d ' ')
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - You have $BALANCECREDITS credits\n'"
 	fi
 }
@@ -3360,7 +3350,7 @@ function COMMAND_FDEPOSIT(){
 		then
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Connecting to GALACTICE BANK servers\n'"
 			log_playerinfo $1
-			FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+			FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
 			if [ ! $FACTION = "None" ]
 			then
 				create_factionfile $FACTION
@@ -3372,9 +3362,9 @@ function COMMAND_FDEPOSIT(){
 #				echo "Adjusted time to remove 10 seconds $ADJUSTEDTIME"
 				if [ "$OLDTIME" -ge "$ADJUSTEDTIME" ]
 				then
-					BALANCECREDITS=$(grep CreditsInBank $FACTIONFILE/$FACTION | cut -d" " -f2- |  tr -d ' ')
+					BALANCECREDITS=$(grep CreditsInBank $FACTIONFILE/$FACTION | cut -d= -f2- |  tr -d ' ')
 #					echo $BALANCECREDITS
-					CREDITSTOTAL=$(grep CurrentCredits $PLAYERFILE/$1 | cut -d" " -f2- |  tr -d ' ')  
+					CREDITSTOTAL=$(grep CurrentCredits $PLAYERFILE/$1 | cut -d= -f2- |  tr -d ' ')  
 #					echo "Credits in log $CREDITTOTAL"
 #					echo "Total credits are $CREDITSTOTAL on person and $BALANCECREDITS in bank"
 #					echo "Credits to be deposited $2 "
@@ -3384,9 +3374,9 @@ function COMMAND_FDEPOSIT(){
 						NEWBALANCE=$(( $2 + $BALANCECREDITS ))
 						NEWCREDITS=$(( $CREDITSTOTAL - $2 ))
 #						echo "new bank balance is $NEWBALANCE"
-						as_user "sed -i 's/CurrentCredits: .*/CurrentCredits: $NEWCREDITS/g' $PLAYERFILE/$1"
-						as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $NEWBALANCE/g' $FACTIONFILE/$FACTION"
-#						as_user "sed -i '4s/.*/CreditsInBank: $NEWBALANCE/g' $PLAYERFILE/$1"
+						as_user "sed -i 's/CurrentCredits=.*/CurrentCredits=$NEWCREDITS/g' $PLAYERFILE/$1"
+						as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$NEWBALANCE/g' $FACTIONFILE/$FACTION"
+#						as_user "sed -i '4s/.*/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/give_credits $1 -$2\n'"
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK You successfully deposited $2 credits\n'"
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK Your factions balance is now $NEWBALANCE\n'"
@@ -3418,18 +3408,18 @@ function COMMAND_FWITHDRAW(){
 		then
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTICE BANK - Connecting to servers\n'"
 			log_playerinfo $1
-			FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+			FACTION=$(grep "PlayerFaction=" $PLAYERFILE/$1 | cut -d= -f2)
 			if [ ! $FACTION = "None" ]
 			then
 				create_factionfile $FACTION
-				BALANCECREDITS=$(grep CreditsInBank $FACTIONFILE/$FACTION | cut -d: -f2 | tr -d ' ')
+				BALANCECREDITS=$(grep CreditsInBank $FACTIONFILE/$FACTION | cut -d= -f2 | tr -d ' ')
 #				echo "bank balance is $BALANCECREDITS"
 				if [ "$2" -le "$BALANCECREDITS" ]
 				then
 					NEWBALANCE=$(( $BALANCECREDITS - $2 ))
 #					echo "new balance for bank account is $NEWBALANCE"
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/give_credits $1 $2\n'"
-					as_user "sed -i 's/CreditsInBank: $BALANCECREDITS/CreditsInBank: $NEWBALANCE/g' $FACTIONFILE/$FACTION"
+					as_user "sed -i 's/CreditsInBank=$BALANCECREDITS/CreditsInBank=$NEWBALANCE/g' $FACTIONFILE/$FACTION"
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK You successfully withdrawn $2 credits\n'"
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALATIC BANK The factions balance is $NEWBALANCE credits\n'"
 					as_user "echo '$1 witdrew $2 from $FACTION' >> $BANKLOG"
@@ -3454,10 +3444,10 @@ function COMMAND_FBALANCE(){
 	else
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - Connecting to servers\n'"
 		log_playerinfo $1
-		FACTION=$(grep "PlayerFaction:" $PLAYERFILE/$1 | cut -d" " -f2)
+		FACTION=$(grep "PlayerFaction" $PLAYERFILE/$1 | cut -d= -f2)
 		if [ ! $FACTION = "None" ]
 		then
-			BALANCECREDITS=$(grep CreditsInBank $FACTIONFILE/$FACTION | cut -d: -f2 | tr -d ' ')
+			BALANCECREDITS=$(grep CreditsInBank $FACTIONFILE/$FACTION | cut -d= -f2 | tr -d ' ')
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - Your faction has $BALANCECREDITS credits\n'"
 		else
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC BANK - You are not in a faction\n'"
@@ -3473,14 +3463,14 @@ function COMMAND_VOTEEXCHANGE(){
 	else
 		if [ $2 -gt 0 ] 2>/dev/null
 		then
-			BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d: -f2 | tr -d ' ')
-			VOTEBALANCE=$(grep "VotingPoints:" $PLAYERFILE/$1 | cut -d" " -f2)
+			BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2 | tr -d ' ')
+			VOTEBALANCE=$(grep "VotingPoints=" $PLAYERFILE/$1 | cut -d= -f2)
 			if [ $VOTEBALANCE -ge $2 ]
 			then
 				NEWVOTE=$(($VOTEBALANCE - $2))
 				NEWCREDITS=$(($BALANCECREDITS + $CREDITSPERVOTE * $2))
-				as_user "sed -i 's/CreditsInBank: .*/CreditsInBank: $NEWCREDITS/g' $PLAYERFILE/$1"
-				as_user "sed -i 's/VotingPoints: .*/VotingPoints: $NEWVOTE/g' $PLAYERFILE/$1"
+				as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$NEWCREDITS/g' $PLAYERFILE/$1"
+				as_user "sed -i 's/VotingPoints=.*/VotingPoints=$NEWVOTE/g' $PLAYERFILE/$1"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You traded in $2 voting points for $(($BALANCECREDITS + $CREDITSPERVOTE * $2)) credits. The credits have been sent to your bank account.\n'"
 			else
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You dont have enough voting points to do that! You only have $VOTEBALANCE voting points\n'"
@@ -3634,17 +3624,17 @@ function COMMAND_CONFIRM(){
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !CONFIRM\n'"
 	else
-		as_user "sed -i 's/CommandConfirm: .*/CommandConfirm: 1/g' $PLAYERFILE/$1"
+		as_user "sed -i 's/CommandConfirm=.*/CommandConfirm=1/g' $PLAYERFILE/$1"
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Commands confirmed for the next 20 seconds!\n'"
 		sleep 20
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Commands are no longer confirmed!\n'"
-		as_user "sed -i 's/CommandConfirm: 1/CommandConfirm: 0/g' $PLAYERFILE/$1"
+		as_user "sed -i 's/CommandConfirm=1/CommandConfirm=0/g' $PLAYERFILE/$1"
 	fi
 }
 function COMMAND_VOTEBALANCE(){ 
 #Tells you how many voting points you have saved up
 #USAGE: !VOTEBALANCE
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have $(grep "VotingPoints:" $PLAYERFILE/$1 | cut -d":" -f2 | tr -d " " ) votes to spend!\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have $(grep "VotingPoints=" $PLAYERFILE/$1 | cut -d= -f2 | tr -d " " ) votes to spend!\n'"
 }
 
 #Utility Commands
@@ -4441,7 +4431,7 @@ function COMMAND_ADMINCOOLDOWN(){
 	else
 		if ! grep -q $3 $PLAYERFILE/$2
 		then
-			as_user "sed -i 's/JumpDisabled: .*/JumpDisabled: 0/g' $PLAYERFILE/$2"
+			as_user "sed -i 's/JumpDisabled=.*/JumpDisabled=0/g' $PLAYERFILE/$2"
 			as_user "sed -i 's/PlayerLastCore: .*/PlayerLastCore: 0/g' $PLAYERFILE/$2"
 			as_user "sed -i 's/PlayerLastFold: .*/PlayerLastFold: 0/g' $PLAYERFILE/$2"
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 All cooldowns set to 0 for $2\n'"
