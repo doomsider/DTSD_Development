@@ -2396,6 +2396,7 @@ do
 # If a = is detected grab the value to the right of = and then overwrite the new value
 	if [[ $OLDSTR == *=* ]]
 	then
+<<<<<<< HEAD
 		NEWVAR=${NEWSTR%%=*}
 #		echo "Here is the NEWVAR $NEWVAR"
 		NEWVAL=${NEWSTR#*=}
@@ -2405,6 +2406,13 @@ do
 		OLDVAL=${OLDSTR#*=}
 #		echo "Here is the OLDVAL $OLDVAL"
 		if [[ "$OLDVAR" == "$NEWVAR" ]]
+=======
+		NEWVAR=${NEWSTR%=*}
+		NEWVAL=${NEWSTR##*=}
+		OLDVAR=${OLDSTR%=*}
+		OLDVAL=${OLDSTR##*=}
+		if [ "$OLDVAR" = "$NEWVAR" ]
+>>>>>>> origin/master
 		then
 #			echo "Matched oldvar $OLDVAR to newvar $NEWVAR"
 			WRITESTRING=${NEWSTR/$NEWVAL/$OLDVAL} 
@@ -2412,7 +2420,11 @@ do
 	fi
 	let OLDARRAY++
 	done
+<<<<<<< HEAD
 #	echo "Here is the writestring $WRITESTRING"	
+=======
+#	echo "$WRITESTRING"
+>>>>>>> origin/master
 	as_user "cat <<EOF >> $PATHUPDATEFILE
 $WRITESTRING
 EOF"
@@ -2538,6 +2550,7 @@ then
 		sleep 10
 	done
 fi
+<<<<<<< HEAD
 }
 hardcore_spawns(){
 if [ "$HARDCORE" = "YES" ]
@@ -2621,6 +2634,91 @@ then
 	done < $HARDCOREFILES/PlayerRadius.txt
 fi
 }
+=======
+}
+hardcore_spawns(){
+if [ "$HARDCORE" = "YES" ]
+then
+	while read SECTOROFFSET
+	do
+#		This first section gets all sectors relative to the player, and checks each one
+		OFFSETX=$(echo $SECTOROFFSET | cut -d"," -f1 | tr -d "[")
+		OFFSETY=$(echo $SECTOROFFSET | cut -d"," -f2)
+		OFFSETZ=$(echo $SECTOROFFSET | cut -d"," -f3 | tr -d "]")
+		PLAYERX=$(echo $1 | cut -d"," -f1 | tr -d "[")
+		PLAYERY=$(echo $1 | cut -d"," -f2)
+		PLAYERZ=$(echo $1 | cut -d"," -f3 | tr -d "]")
+		TARGETSECTOR="$(($PLAYERX + $OFFSETX)),$(($PLAYERY + $OFFSETY)),$(($PLAYERZ + $OFFSETZ))"
+#		Checks in every sector list file for the target sector
+		for LEVELNO in ${!LEVEL[@]}
+		do
+			LEVELDATA=(${LEVEL[$LEVELNO]})
+#			Performs the same task as grep -q -- "\[$TARGETSECTOR\]" $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt) but is faster
+			if [[ $(cat $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt) =~ "[$TARGETSECTOR]" ]]
+			then
+#				If the sector is in the current sector list, then get the sectors data (sector number and cooldown)
+				SECTORDATA=($(grep "\[$TARGETSECTOR\]" $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt))
+#				If it has no cooldown (never been visited before) then start spawning
+				if [ ${#SECTORDATA[@]} -eq 1 ]
+				then
+#					Picks a random line from the sector teirs spawning file (each line is a sector spawn pattern)
+					SECTORSPAWN=($(shuf -n 1 $HARDCOREFILES/LevelSpawns${LEVELDATA[0]}.txt))
+#					Sets the internal sector positions to 1 so the first spawn in the list is in the exact center
+					INTERNALX=0
+					INTERNALY=0
+					INTERNALZ=0
+#					Loops over the number of entities spawned for that sector
+					for SPAWN in ${SECTORSPAWN[@]}
+					do
+#						Creates an entity UUID used for despawning it later
+						ENTITYUUID=ENTITY_HARDCORE_${SPAWN}_$(($(date +%s) + 86400))_$RANDOM
+#						Adds the entity UUID to a log file, for despawning later
+						echo $ENTITYUUID >> $HARDCOREFILES/CurrentSpawns.log
+#						Spawns the entity into the target sector at the specified position
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity_pos $SPAWN $ENTITYUUID $(echo $TARGETSECTOR | tr "," " ") $INTERNALX $INTERNALY $INTERNALZ 0 False\n'"
+#						the internal coords are randomized to between -163 and +163 on each axis
+						INTERNALX=$(($RANDOM/100 - 163))
+						INTERNALY=$(($RANDOM/100 - 163))
+						INTERNALZ=$(($RANDOM/100 - 163))
+					done
+#					Sets the cooldown for 24hours
+					as_user "sed -i 's/\[$TARGETSECTOR\].*/\[$TARGETSECTOR\] $(($(date +%s) + 86400))/g' $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt"
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
+				else
+#					If the cooldown time is less than now, then spawn
+					if [ ${SECTORDATA[1]} -le $(date +%s) ]
+					then
+#						Picks a random line from the sector teirs spawning file (each line is a sector spawn pattern)
+						SECTORSPAWN=($(shuf -n 1 $HARDCOREFILES/LevelSpawns${LEVELDATA[0]}.txt))
+#						Sets the internal sector positions to 1 so the first spawn in the list is in the exact center
+						INTERNALX=0
+						INTERNALY=0
+						INTERNALZ=0
+#						Loops over the number of entities spawned for that sector
+						for SPAWN in ${SECTORSPAWN[@]}
+						do
+#							Creates an entity UUID used for despawning it later
+							ENTITYUUID=ENTITY_HARDCORE_${SPAWN}_$(($(date +%s) + 86400))_$RANDOM
+#							Adds the entity UUID to a log file, for despawning later
+							echo $ENTITYUUID >> $HARDCOREFILES/CurrentSpawns.log
+#							Spawns the entity into the target sector at the specified position
+							as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity_pos $SPAWN $ENTITYUUID $(echo $TARGETSECTOR | tr "," " ") $INTERNALX $INTERNALY $INTERNALZ 0 False\n'"
+#							the internal coords are randomized to between -163 and +163 on each axis
+							INTERNALX=$(($RANDOM/100))
+							INTERNALY=$(($RANDOM/100))
+							INTERNALZ=$(($RANDOM/100))
+						done
+#						Sets the cooldown for 24hours
+						as_user "sed -i 's/\[$TARGETSECTOR\].*/\[$TARGETSECTOR\] $(($(date +%s) + 86400))/g' $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt"
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
+					fi
+				fi
+			fi
+		done
+	done < $HARDCOREFILES/PlayerRadius.txt
+fi
+}
+>>>>>>> origin/master
 hardcore_removespawns(){
 if [ "$HARDCORE" = "YES" ]
 then
