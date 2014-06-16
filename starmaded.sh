@@ -8,7 +8,7 @@
 # The daemon should be ran from the intended user as it detects and writes the current username to the configuration file
 
 #For development purposes update check can be turned off
-UPDATECHECK=NO
+UPDATECHECK=YES
 # Set the basics paths for the Daemon automatically.  This can be changed if needed for alternate configurations
 # This sets the path of the script to the actual script directory.  This is some magic I found on stackoverflow http://stackoverflow.com/questions/4774054/reliable-way-for-a-bash-script-to-get-the-full-path-to-itself	
 DAEMONPATH=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)/`basename "${BASH_SOURCE[0]}"`
@@ -35,22 +35,21 @@ if [ -e $CONFIGPATH ]
 then
 	if [ "$UPDATECHECK" = "YES" ]
 	then
-		echo "Checking HASH to see if Daemon was updated"
+#		echo "Checking HASH to see if Daemon was updated"
 # Grab the hash from the config file and compare it tot he Daemon's hash to see if the Daemon has been updated	
 		CONFIGHASH=$(grep HASH $CONFIGPATH | cut -d= -f2 | tr -d ' ')
 		if [ "$CONFIGHASH" = "$CURRENTHASH" ]
 		then
-			echo "No update detected, Reading from Source $CONFIGPATH"
+#			echo "No update detected, Reading from Source $CONFIGPATH"
 			source $CONFIGPATH
 		else
 			echo "Changes detected updating config files"
-# Here is where update will take place
-			update_daemon
 # Source read from another file.  In this case it is the config file containing all the settings for the Daemon
 			source $CONFIGPATH
+			update_daemon
 		fi
 	else
-		echo "Update check is turned off reading source from config file"
+#		echo "Update check is turned off reading source from config file"
 		source $CONFIGPATH
 	fi
 else
@@ -58,7 +57,7 @@ else
 	USERNAME=$(whoami)
 	echo "Creating configuration file please edit configuration file (ie: starmade.cfg) or script may not function as intended"
 # The following creates the directories and configuration files
-	write_configpath
+	create_configpath
 	source $CONFIGPATH
 	sm_checkdir
 	create_tipfile
@@ -602,6 +601,7 @@ echo "precheck - Checks to see if there is a new pre version, stops server, back
 echo "check - Checks to see if there is a new version, stops server, backs up, and installs it"
 echo "ban username - Bans by username finding all IPs in entity player file and banning them"
 echo "dump - Do a thread dump with number of times and delay between them"
+echo "box - Send a colored message box.  Usage: box <red|blue|green> <playername (optional)> <message>"
 }
 sm_log() {
 #Saves the PID of this function being run
@@ -613,7 +613,10 @@ autovoteretrieval &
 randomhelptips &
 sectorincome &
 sectorfees &
+hardcore_removeobjects &
+hardcore_removespawns &
 create_rankscommands
+source $HARDCORECONFIG
 # Create the Gate whitelist file if it doesnt exist
 	mkdir -p $GATEWHITELIST
 # Create the playerfile folder if it doesnt exist
@@ -653,6 +656,8 @@ create_rankscommands
 		SEARCHCHANGE="has players attached. Doing Sector Change for PlS"
 		SEARCHBUY="[BLUEPRINT][BUY]"
 		SEARCHBOARD="[CONTROLLER][ADD-UNIT]"
+		SEARCHDOCK="NOW REQUESTING DOCK FROM"
+		SEARCHUNDOCK="NOW UNDOCKING:"
 		SEARCHADMIN="[ADMIN COMMAND]"
 		SEARCHKILL="Announcing kill:"
 		SEARCHDESTROY="PERMANENTLY DELETING ENTITY:"
@@ -697,6 +702,16 @@ create_rankscommands
 #				echo $CURRENTSTRING
 				log_boarding $CURRENTSTRING &
 				;;
+			*"$SEARCHDOCK"*) 
+#				echo "Docking detected"
+#				echo $CURRENTSTRING
+				log_docking docking $CURRENTSTRING &
+				;;
+			*"$SEARCHUNDOCK"*) 
+#				echo "Undocking detected"
+#				echo $CURRENTSTRING
+				log_docking undocking $CURRENTSTRING &
+				;;
 			*"$SEARCHADMIN"*) 
 #				echo "Admin detected"
 #				echo $CURRENTSTRING
@@ -722,6 +737,166 @@ create_rankscommands
 #			echo "all done"
 		done
 	done	
+}
+parselog(){
+		SEARCHLOGIN="[SERVER][LOGIN] login received. returning login info for RegisteredClient: "
+		SEARCHREMOVE="[SERVER][DISCONNECT] Client 'RegisteredClient:"
+		SEARCHCHAT="[CHAT]"
+		SEARCHCHANGE="has players attached. Doing Sector Change for PlS"
+		SEARCHBUY="[BLUEPRINT][BUY]"
+		SEARCHBOARD="[CONTROLLER][ADD-UNIT]"
+		SEARCHDOCK="NOW REQUESTING DOCK FROM"
+		SEARCHUNDOCK="NOW UNDOCKING:"
+		SEARCHADMIN="[ADMIN COMMAND]"
+		SEARCHKILL="Announcing kill:"
+		SEARCHDESTROY="PERMANENTLY DELETING ENTITY:"
+		SEARCHINIT="SPAWNING NEW CHARACTER FOR PlS"
+		case "$@" in
+			*"$SEARCHLOGIN"*) 
+#				echo "Login detected"
+#				echo $@
+				log_on_login $@ &
+				;;
+			*"$SEARCHREMOVE"*) 
+#				echo "Remove detected"
+#				echo $@
+				log_playerlogout $@ &
+				;;
+ 			*"$SEARCHCHAT"*) 
+#				echo "Chat detected"
+#				echo $@
+				log_chatcommands $@ &
+				log_chatlogging $@ &
+				;;
+			*"$SEARCHCHANGE"*) 
+#				echo "Change detected"
+#				echo $@
+				log_sectorchange $@ &
+				;;
+			*"$SEARCHBUY"*) 
+#				echo "Buy detected"
+#				echo $@
+				log_shipbuy $@ &
+				;;
+			*"$SEARCHBOARD"*) 
+#				echo "Board detected"
+#				echo $@
+				log_boarding $@ &
+				;;
+			*"$SEARCHDOCK"*) 
+#				echo "Docking detected"
+#				echo $@
+				log_docking docking $@ &
+				;;
+			*"$SEARCHUNDOCK"*) 
+#				echo "Undocking detected"
+#				echo $@
+				log_docking undocking $@ &
+				;;
+			*"$SEARCHADMIN"*) 
+#				echo "Admin detected"
+#				echo $@
+				log_admincommand $@ &
+				;;
+			*"$SEARCHKILL"*) 
+#				echo "Kill detected"
+#				echo $@
+				log_kill $@ &
+				;;
+			*"$SEARCHDESTROY"*) 
+#				echo "Destroy detected"
+#				echo $@
+				log_destroystring $@ &
+				;;
+			*"$SEARCHINIT"*) 
+#				echo "Init detected"
+				log_initstring $@ &
+				;;
+			*) 
+				;;
+			esac
+}
+sm_box() {
+PRECEIVE=$(ls $PLAYERFILE)
+#echo "Players $PRECEIVE"
+ISPLAYER=$3
+#echo "Possible playername $ISPLAYER"
+if [[ $PRECEIVE =~ $ISPLAYER ]]
+then
+	echo "player found"
+	MESSAGE=${@:4}
+	case "$2" in
+		*"green"*) 
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/server_message_to info $3 \'$MESSAGE\'\n'"
+		;;
+		*"blue"*)
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/server_message_to warning $3 \'$MESSAGE\'\n'"
+		;;
+		*"red"*) 
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/server_message_to error $3 \'$MESSAGE\'\n'"
+		;;
+		*) 
+		;;
+	esac
+else
+	echo "No player found"
+	MESSAGE=${@:3}
+	case "$2" in
+		*"green"*) 
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/server_message_broadcast info \'$MESSAGE\'\n'"
+		;;
+		*"blue"*)
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/server_message_broadcast warning \'$MESSAGE\'\n'"
+		;;
+		*"red"*) 
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/server_message_broadcast error \'$MESSAGE\'\n'"
+		;;
+		*) 
+		;;
+	esac
+fi
+}
+smgm_hardcore(){ #Havent had the time to add this into the current config method
+#Creates the config file if it doesnt exist
+if [ ! -e $HARDCORECONFIG ]
+then
+	CREATEHARDCORE="cat > $HARDCORECONFIG <<_EOF_
+#LEVEL[levelofspawns]=\"nameOfLevel levelOuterDistance levelInnerDistance %ofLevelsThatAreSpawningSectors\"
+#e.g. LEVEL[0]=\"0 15 5 25\" means that level 0 will have sectors marked from -15,-15,-15 to 15,15,15 apart from -5,-5,-5 to 5,5,5 , but only 25% of these sectors will be marked as spawning
+#WARNING the larger the area, the longer the list takes to generate and the more laggy the server will be.
+LEVEL[0]=\"0 15 5 25\" #Roughly 7115 sectors
+LEVEL[1]=\"1 25 15 20\" #Roughly 20572 sectors
+LEVEL[2]=\"2 35 25 15\" #Roughly 33789 sectors
+LEVEL[3]=\"3 45 35 10\" #Roughly 39566 sectors
+#The radius around the player that spawns in the specified sectors (same method as above)
+PLAYERRADIUS=\"PlayerRadius 1 0 100\" #All sectors in a 3x3x3 hollow cube centered on the player are spawned
+_EOF_"
+as_user "$CREATEHARDCORE"
+	echo "Hardcore config has been created. Please edit it to suit your needs."
+else
+	if [ ! -d $HARDCOREFILES ]
+	then
+		as_user "mkdir $HARDCOREFILES"
+	fi
+	source $HARDCORECONFIG
+#	Calls generate_sectorlist for all the sectors defined and for the player
+	for LEVELNO in ${!LEVEL[@]}
+	do
+		LEVELDATA=${LEVEL[$LEVELNO]}
+		if [ ! -e $HARDCOREFILES/LevelData$(echo $LEVELDATA | cut -d" " -f1).txt ]
+		then
+			generate_sectorlist LevelData$(echo $LEVELDATA | cut -d" " -f1) $(echo $LEVELDATA | cut -d" " -f2) $(echo $LEVELDATA | cut -d" " -f3) $(echo $LEVELDATA | cut -d" " -f4)
+		fi
+		if [ ! -e $HARDCOREFILES/LevelSpawns$(echo $LEVELDATA | cut -d" " -f1).txt ]
+		then
+			as_user "touch $HARDCOREFILES/LevelSpawns$(echo $LEVELDATA | cut -d" " -f1).txt"
+		fi
+	done
+	if [ ! -e $HARDCOREFILES/PlayerRadius.txt ]
+	then
+		generate_sectorlist PlayerRadius $(echo $PLAYERRADIUS | cut -d" " -f2) $(echo $PLAYERRADIUS | cut -d" " -f3) $(echo $PLAYERRADIUS | cut -d" " -f4)
+	fi	
+fi
 }
 
 #------------------------------Core logging functions-----------------------------------------
@@ -849,7 +1024,7 @@ then
 #				echo "Here is the command with variables ${CCOMMAND[@]}"
 # 				Get the player rank from their log file
 # 				echo "looking for player rank"
-		PLAYERRANK=$(grep Rank: "$PLAYERFILE/$PLAYERCHATID" | cut -d" " -f2 | cut -d"[" -f2 | cut -d"]" -f1)
+		PLAYERRANK=$(grep Rank= "$PLAYERFILE/$PLAYERCHATID" | cut -d= -f2)
 # 	echo "$PLAYERRANK is the player rank"
 #				Find the allowed commands for the current player rank 
 # 				echo "looking for allowed commands"
@@ -891,7 +1066,7 @@ then
 	swear_prevention $PLAYERCHATID $(echo $CHATGREP | cut -d" " -f4-) &
 fi
 }
-log_kill() {
+log_kill() { 
 # If kill string is found
 # Set CKILLSTRING to current kill string array
 CKILLSTRING=$@
@@ -904,19 +1079,28 @@ then
 	if [ -e $PLAYERFILE/$PLAYERKILLER ]
 	then
 		PLAYERFILEEXISTS=1
-#	    echo "player has a playerfile"
+#	    echo "player killer has a playerfile"
 	else
 		log_playerinfo $PLAYERKILLER
 	fi
+	
 # Grab the current player killed
 	PLAYERDEAD=$(echo $CKILLSTRING | cut -d\[ -f4 | cut -d\; -f1)
+	if [ -e $PLAYERFILE/$PLAYERDEAD ]
+	then
+		PLAYERFILEEXISTS=1
+#	    echo "Dead player has a playerfile"
+	else
+		log_playerinfo $PLAYERDEAD
+	fi
+	
 #	echo playerdead is $PLAYERDEAD
-# Send who killed
-	LASTKILLED=$(grep PlayerLastKilled $PLAYERFILE/$PLAYERKILLER | cut -d: -f2 | tr -d ' ')
-	KILLEDBY=$(grep  PlayerKilledBy $PLAYERFILE/$PLAYERDEAD | cut -d: -f2 | tr -d ' ')
+# Send information to the playerfiles and log to indicate who killed, got killed, and at what time
 	as_user "echo $PLAYERKILLER killed $PLAYERDEAD without predujice >> $KILLLOG"
-	as_user "sed -i 's/PlayerLastKilled: $LASTKILLED/PlayerLastKilled: $PLAYERDEAD/g' $PLAYERFILE/$PLAYERKILLER"
-	as_user "sed -i 's/PlayerKilledBy: .*/PlayerKilledBy: $PLAYERKILLER $(date +%s)/g' $PLAYERFILE/$PLAYERDEAD"  
+	as_user "sed -i 's/PlayerLastKilled=.*/PlayerLastKilled=$PLAYERDEAD/g' $PLAYERFILE/$PLAYERKILLER"
+	as_user "sed -i 's/PlayerKilledBy=.*/PlayerKilledBy=$PLAYERKILLER/g' $PLAYERFILE/$PLAYERDEAD"
+	as_user "sed -i 's/PlayerKilledtime=.*/PlayerKilledtime=$(date +%s)/g' $PLAYERFILE/$PLAYERDEAD"
+	log_checkbounty $PLAYERKILLER $PLAYERDEAD
 # If the current kill string involved ship combat        
 elif echo $CKILLSTRING | grep "Ship" >/dev/null
 then
@@ -925,6 +1109,14 @@ then
 #	echo ShipKiller is $SHIPKILLER
 # Grab the player than died
 	PLAYERDEAD=$(echo $CKILLSTRING | cut -d\[ -f2 | cut -d\; -f1)
+	if [ -e $PLAYERFILE/$PLAYERDEAD ]
+	then
+		PLAYERFILEEXISTS=1
+#	    echo "dead player has a playerfile"
+	else
+		log_playerinfo $PLAYERDEAD
+	fi
+	
 #	echo PlayerDead is $PLAYERDEAD
 # Grab the player who did the killing by matching the ship to the player in the ship.log
 	if grep $SHIPKILLER $SHIPLOG
@@ -934,16 +1126,16 @@ then
 		if [ -e $PLAYERFILE/$PLAYERKILLER ]
 		then
 			PLAYERFILEEXISTS=1
-#		    echo "player has a playerfile"
+#		    echo "player killer has a playerfile"
 		else
 			log_playerinfo $PLAYERKILLER
 		fi
-		LASTKILLED=$(grep PlayerLastKilled $PLAYERFILE/$PLAYERKILLER | cut -d: -f2 | tr -d ' ')
-		KILLEDBY=$(grep  PlayerKilledBy $PLAYERFILE/$PLAYERDEAD | cut -d: -f2 | tr -d ' ')
 # Write to the kill log who did the killing and who got killed
 		as_user "echo $PLAYERKILLER killed $PLAYERDEAD without predujice >> $KILLLOG"
-		as_user "sed -i 's/PlayerLastKilled: $LASTKILLED/PlayerLastKilled: $PLAYERDEAD/g' $PLAYERFILE/$PLAYERKILLER"
-		as_user "sed -i 's/PlayerKilledBy: .*/PlayerKilledBy: $PLAYERKILLER $(date +%s)/g' $PLAYERFILE/$PLAYERDEAD"
+		as_user "sed -i 's/PlayerLastKilled=.*/PlayerLastKilled=$PLAYERDEAD/g' $PLAYERFILE/$PLAYERKILLER"
+		as_user "sed -i 's/PlayerKilledBy=.*/PlayerKilledBy=$PLAYERKILLER/g' $PLAYERFILE/$PLAYERDEAD"
+		as_user "sed -i 's/PlayerKilledtime=.*/PlayerKilledtime=$(date +%s)/g' $PLAYERFILE/$PLAYERDEAD"
+		log_checkbounty $PLAYERKILLER $PLAYERDEAD
 	else
 		as_user "echo $PLAYERDEAD was killed by AI ships >> $KILLLOG"
 	fi
@@ -958,7 +1150,7 @@ else
 fi
 }
 log_admincommand() { 
-if [[ ! $@ == *org.schema.schine.network.server.AdminLocalClient* ]] && [[ ! $@ =~ "no slot free for" ]]
+if [[ ! $@ == *org.schema.schine.network.server.AdminLocalClient* ]] && [[ ! $@ =~ "no slot free for" ]] && [[ ! $@ =~ "SERVER-LOCAL-ADMIN" ]]
 then
 	# Format the admin command string to be written to the admin log
 	ADMINSTR="$@ $(date '+%b_%d_%Y_%H.%M.%S')"
@@ -983,7 +1175,7 @@ else
 	log_playerinfo $LOGOUTPLAYER
 fi
 # Use sed to change the playerfile PlayerLoggedIn to No
-as_user "sed -i 's/PlayerLoggedIn: Yes/PlayerLoggedIn: No/g' $PLAYERFILE/$LOGOUTPLAYER"
+as_user "sed -i 's/PlayerLoggedIn=Yes/PlayerLoggedIn=No/g' $PLAYERFILE/$LOGOUTPLAYER"
 # Echo current string and array to the guestboot as a log off
 LOGOFF="$LOGOUTPLAYER logged off at $(date '+%b_%d_%Y_%H.%M.%S') server time"
 as_user "echo $LOGOFF >> $GUESTBOOK"
@@ -1012,16 +1204,16 @@ then
 	# The last ship the player was in from player.log
 	OLD_IFS=$IFS
 	IFS=$'\n'
-	SHIPEXITED=$(grep PlayerControllingObject $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')
+	SHIPEXITED=$(grep PlayerControllingObject $PLAYERFILE/$PLAYEREXITING | cut -d= -f2)
 #	echo "This is the ship the player is exiting $SHIPEXITED"
 	IFS=$OLD_IFS
 # The current known sector the player is in
 	SHIPBOARDSECTOR=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
 #	echo "$PLAYEREXITING got out of $SHIPEXITED"
-    OBJECTTYPEOLD=$(grep PlayerControllingType $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')
+    OBJECTTYPEOLD=$(grep PlayerControllingType $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
 # Change Playercontrollingobject to the current name of ship/player and 
-	as_user "sed -i 's/PlayerControllingObject: .*/PlayerControllingObject: PlayerCharacter/g' $PLAYERFILE/$PLAYEREXITING"
-	as_user "sed -i 's/PlayerControllingType: .*/PlayerControllingType: Spacesuit/g' $PLAYERFILE/$PLAYEREXITING"
+	as_user "sed -i 's/PlayerControllingObject=.*/PlayerControllingObject=PlayerCharacter/g' $PLAYERFILE/$PLAYEREXITING"
+	as_user "sed -i 's/PlayerControllingType=.*/PlayerControllingType=Spacesuit/g' $PLAYERFILE/$PLAYEREXITING"
 fi
 # This add ship name to player.log and Ship.log or changes it if it is different
 if (echo $@ | grep "Added to controllers: Ship\[" >/dev/null)
@@ -1038,7 +1230,7 @@ then
 	OBJECTTYPENEW=$(echo $SHIPBSTRING| cut -d: -f3 | cut -d[ -f1 | tr -d " ")
 #	echo "This is the new object type $OBJECTTYPENEW"
 # Last ship player was in from player.log
-	SBACTIVEOLDSHIP=$(grep PlayerControllingObject $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')
+	SBACTIVEOLDSHIP=$(grep PlayerControllingObject $PLAYERFILE/$PLAYEREXITING | cut -d= -f2)
 #	echo "This is the old ship the player controlling object $SBACTIVEOLDSHIP"
 	IFS=$OLD_IFS
 #	echo "$SHIPBOARDED is the ship being boarded"
@@ -1049,13 +1241,13 @@ then
 # If the player is found in the player.log then write the new ship to it    
 #	echo "Changing character file to reflect new ship"
 # Change the last boarded ship to the new ship uses playername to ensure the correct line used      
-	as_user "sed -i 's/PlayerControllingObject: .*/PlayerControllingObject: $SHIPBOARDED/g' $PLAYERFILE/$PLAYEREXITING"
-	as_user "sed -i 's/PlayerControllingType: .*/PlayerControllingType: Ship/g' $PLAYERFILE/$PLAYEREXITING"
+	as_user "sed -i 's/PlayerControllingObject=.*/PlayerControllingObject=$SHIPBOARDED/g' $PLAYERFILE/$PLAYEREXITING"
+	as_user "sed -i 's/PlayerControllingType=.*/PlayerControllingType=Ship/g' $PLAYERFILE/$PLAYEREXITING"
 # If no ship file exists then creates one    
 	if [ ! -f $SHIPLOG ] 
 	then
 #		echo "no file"   
-		as_user "echo \{$SHIPBOARDED\} \[$PLAYEREXITING\] \($SHIPBRDSC\) >> $SHIPLOG" 
+		as_user "echo \{$SHIPBOARDED\} \[$PLAYEREXITING\] \<~none\> \($SHIPBRDSC\) >> $SHIPLOG" 
 	fi
 # If the ship log does exist 
 	if  [ -e $SHIPLOG ]
@@ -1073,7 +1265,7 @@ then
 		else 
 #			echo "file found but no ship name, writing"
 # Write the new ship, boarder, and current sector to ship log
-			as_user "echo \{$SHIPBOARDED\} \[$PLAYEREXITING\] \($SHIPBRDSC\) >> $SHIPLOG"  
+			as_user "echo \{$SHIPBOARDED\} \[$PLAYEREXITING\] \<~none\> \($SHIPBRDSC\) >> $SHIPLOG"  
 # Write the new ship to the player log
 		fi
 	fi
@@ -1095,12 +1287,12 @@ then
 # Current last known player sector
 	STATIONBRDSC=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
 #	echo "This is the sector the station is in $STATIONBRDSC"
-	OBJECTTYPEOLD=$(grep PlayerControllingType $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')
+	OBJECTTYPEOLD=$(grep PlayerControllingType $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
 #	echo "This is the old object type the player was controlling $OBJECTTYPEOLD"
 # Last ship player was in from player.log
 	OLD_IFS=$IFS
 	IFS=$'\n'
-	SBACTIVEOLDSHIP=$(grep PlayerControllingObject $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')  
+	SBACTIVEOLDSHIP=$(grep PlayerControllingObject $PLAYERFILE/$PLAYEREXITING | cut -d= -f2)  
 	IFS=$OLD_IFS  
 #	echo "$SBACTIVEOLDSHIP"
 #       echo "Station board found"
@@ -1108,8 +1300,8 @@ then
 	
 # Change the last boarded ship to the new ship uses playername to ensure the correct line used      
 #	echo "Changing player file to have station name as controlling object and station as the object type"
-	as_user "sed -i 's/PlayerControllingObject: .*/PlayerControllingObject: $STBOARDED/g' $PLAYERFILE/$PLAYEREXITING"
-	as_user "sed -i 's/PlayerControllingType: .*/PlayerControllingType: Spacestation/g' $PLAYERFILE/$PLAYEREXITING"
+	as_user "sed -i 's/PlayerControllingObject=.*/PlayerControllingObject=$STBOARDED/g' $PLAYERFILE/$PLAYEREXITING"
+	as_user "sed -i 's/PlayerControllingType=.*/PlayerControllingType=Spacestation/g' $PLAYERFILE/$PLAYEREXITING"
 # If no station file exists then creates one    
 	if [ ! -f $STATIONLOG ] 
 	then
@@ -1146,15 +1338,15 @@ then
 #	echo "Planet $PLANETBOARDED boarded"
 	PLANETCOORDS=$(grep PlayerLocation $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
 #	echo "These are the planets coords $PLANETCOORDS"
-	OBJECTTYPEOLD=$(grep PlayerControllingType $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')
+	OBJECTTYPEOLD=$(grep PlayerControllingType $PLAYERFILE/$PLAYEREXITING | cut -d= -f2 | tr -d ' ')
 #	echo "This is the previous object type the player was controlling $OBJECTTYPEOLD"
 	OLD_IFS=$IFS
 	IFS=$'\n'
-	PBACTIVEOLDSHIP=$(grep PlayerControllingObject $PLAYERFILE/$PLAYEREXITING | cut -d: -f2 | tr -d ' ')  
+	PBACTIVEOLDSHIP=$(grep PlayerControllingObject $PLAYERFILE/$PLAYEREXITING | cut -d= -f2)  
 	IFS=$OLD_IFS
 #	echo "Changing player file to have station name as controlling object and station as the object type"
-	as_user "sed -i 's/PlayerControllingObject: $PBACTIVEOLDSHIP/PlayerControllingObject: $PLANETBOARDED/g' $PLAYERFILE/$PLAYEREXITING"
-	as_user "sed -i 's/PlayerControllingType: $OBJECTTYPEOLD/PlayerControllingType: Planet/g' $PLAYERFILE/$PLAYEREXITING"
+	as_user "sed -i 's/PlayerControllingObject=$PBACTIVEOLDSHIP/PlayerControllingObject=$PLANETBOARDED/g' $PLAYERFILE/$PLAYEREXITING"
+	as_user "sed -i 's/PlayerControllingType=$OBJECTTYPEOLD/PlayerControllingType=Planet/g' $PLAYERFILE/$PLAYEREXITING"
 	if [ ! -f $PLANETLOG ] 
 	then
 #		echo "no file"   
@@ -1192,12 +1384,13 @@ then
 		PLAYERSCSOLOCHANGE=$(echo "$SCCHNGTR" | cut -d\( -f8 | cut -d\) -f1 | tr -d ' ')      
 #		echo "This is the new sector $PLAYERSCSOLOCHANGE"
 	# Find the last sector for the player from player.log
-		PLOLDSCOTYPE=$(grep PlayerControllingType $PLAYERFILE/$PLAYERSCSOLO | cut -d: -f2)
+		PLOLDSCOTYPE=$(grep PlayerControllingType $PLAYERFILE/$PLAYERSCSOLO | cut -d= -f2)
 		PLOLDSCCHANGE=$(grep PlayerLocation $PLAYERFILE/$PLAYERSCSOLO | cut -d= -f2 | tr -d ' ')
 #		echo "This was the last object player was in $PLOLDSCOTYPE"
 		as_user "sed -i 's/PlayerLocation=$PLOLDSCCHANGE/PlayerLocation=$PLAYERSCSOLOCHANGE/g' $PLAYERFILE/$PLAYERSCSOLO"
 		universeboarder $PLAYERSCSOLOCHANGE $PLAYERSCSOLO
 		customspawns $PLAYERSCSOLOCHANGE $PLAYERSCSOLO &
+		hardcore_spawns $PLAYERSCSOLOCHANGE $PLAYERSCSOLO &
 	#----------------------------SHIP---------------------------------------------
 	# If there is a sector change with a ship
 	elif (echo "$SCCHNGTR" | grep Ship >/dev/null)
@@ -1224,12 +1417,13 @@ then
 		as_user "sed -i 's/PlayerLocation=$OLDSHIPSC/PlayerLocation=$PLAYERSCSHIPCHANGE/g' $PLAYERFILE/$PLAYERSCSHIP"
 		if (grep "{$SHIPSC}" $SHIPLOG >/dev/null)
 		then
-			as_user "sed -i 's/{$SHIPSC} .*/{$SHIPSC} \[$PLAYERSCSHIP\] \($PLAYERSCSHIPCHANGE\)/g' $SHIPLOG"
+			as_user "sed -i 's/{$SHIPSC} .*/{$SHIPSC} \[$PLAYERSCSHIP\] \<~none\> \($PLAYERSCSHIPCHANGE\)/g' $SHIPLOG"
 		else
-			as_user "echo {$SHIPSC} \[$PLAYERSCSHIP\] \($PLAYERSCSHIPCHANGE\) >> $SHIPLOG" 
+			as_user "echo {$SHIPSC} \[$PLAYERSCSHIP\] \<~none\> \($PLAYERSCSHIPCHANGE\) >> $SHIPLOG" 
 		fi
 		universeboarder $PLAYERSCSHIPCHANGE $PLAYERSCSHIP
 		customspawns $PLAYERSCSHIPCHANGE $PLAYERSCSHIP &
+		hardcore_spawns $PLAYERSCSHIPCHANGE $PLAYERSCSHIP &
 	#----------------------------STATION---------------------------------------------
 	# If there is a sector change with a station
 	elif (echo "$SCCHNGTR" | grep SpaceStation >/dev/null)
@@ -1262,6 +1456,7 @@ then
 		fi
 		universeboarder $PLAYERSCSTATIONCHANGE $PLAYERSCSTATION
 		customspawns $PLAYERSCSTATIONCHANGE $PLAYERSCSTATION &
+		hardcore_spawns $PLAYERSCSTATIONCHANGE $PLAYERSCSTATION &
 	#----------------------------PLANET---------------------------------------------
 	# If there is a sector change with a planet
 	elif (echo "$SCCHNGTR" | grep Planet >/dev/null)
@@ -1294,6 +1489,7 @@ then
 		fi
 		universeboarder $PLAYERSCPLANETCHANGE $PLAYERSCPLANET
 		customspawns $PLAYERSCPLANETCHANGE $PLAYERSCPLANET &
+		hardcore_spawns $PLAYERSCPLANETCHANGE $PLAYERSCPLANET &
 	fi
 fi
 }
@@ -1362,12 +1558,13 @@ log_on_login() {
 LOGINPLAYER=$(echo $@ | cut -d: -f2 | cut -d" " -f2)
 #echo "$LOGINPLAYER logged in"
 create_playerfile $LOGINPLAYER
-as_user "sed -i 's/JustLoggedIn: .*/JustLoggedIn: Yes/g' $PLAYERFILE/$LOGINPLAYER"
-as_user "sed -i 's/ChatCount: .*/ChatCount: 0/g' $PLAYERFILE/$LOGINPLAYER"
-as_user "sed -i 's/SpamWarning: .*/SpamWarning: No/g' $PLAYERFILE/$LOGINPLAYER"
-as_user "sed -i 's/SwearCount: .*/SwearCount: 0/g' $PLAYERFILE/$LOGINPLAYER"
-as_user "sed -i 's/CapsCount: .*/CapsCount: 0/g' $PLAYERFILE/$LOGINPLAYER"
-as_user "sed -i 's/PlayerLastLogin: .*/PlayerLastLogin: $(date)/g' $PLAYERFILE/$LOGINPLAYER"
+DATE=$(date '+%b_%d_%Y_%H.%M.%S')
+as_user "sed -i 's/JustLoggedIn=.*/JustLoggedIn=Yes/g' $PLAYERFILE/$LOGINPLAYER"
+as_user "sed -i 's/ChatCount=.*/ChatCount=0/g' $PLAYERFILE/$LOGINPLAYER"
+as_user "sed -i 's/SpamWarning=.*/SpamWarning=No/g' $PLAYERFILE/$LOGINPLAYER"
+as_user "sed -i 's/SwearCount=.*/SwearCount=0/g' $PLAYERFILE/$LOGINPLAYER"
+as_user "sed -i 's/CapsCount=.*/CapsCount=0/g' $PLAYERFILE/$LOGINPLAYER"
+as_user "sed -i 's/PlayerLastLogin=.*/PlayerLastLogin=$DATE/g' $PLAYERFILE/$LOGINPLAYER"
 LOGON="$LOGINPLAYER logged on at $(date '+%b_%d_%Y_%H.%M.%S') server time"
 as_user "echo $LOGON >> $GUESTBOOK"
 as_user "echo $LOGINPLAYER >> $ONLINELOG"
@@ -1402,12 +1599,88 @@ if [ $FACUNREADCOUNT -gt "0" ]
 then
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER Your faction has $FACUNREADCOUNT unread mail. Type !FMAIL LIST Unread to see all unread mail.\n'"
 fi
-if grep -q "JustLoggedIn: Yes" $PLAYERFILE/$INITPLAYER 
+if grep -q "JustLoggedIn=Yes" $PLAYERFILE/$INITPLAYER 
 then
 	LOGINMESSAGE="Welcome to the server $INITPLAYER! Type !HELP for chat commands"
 	# A chat message that is displayed whenever a player logs in
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $INITPLAYER $LOGINMESSAGE\n'"
-	as_user "sed -i 's/JustLoggedIn: .*/JustLoggedIn: No/g' $PLAYERFILE/$INITPLAYER"
+	as_user "sed -i 's/JustLoggedIn=.*/JustLoggedIn=No/g' $PLAYERFILE/$INITPLAYER"
+fi
+}
+log_docking(){
+if [ $1 = "docking" ]
+then
+	DOCKSTRING=${@:2}
+	DOCKSHIP=$(echo $DOCKSTRING | cut -d"[" -f3 | cut -d"]" -f1)
+#	echo $DOCKSHIP
+	if $(echo $DOCKSTRING | grep -q -- "ON Ship\[")
+	then
+		DOCKENTITY=$(echo $DOCKSTRING | cut -d"[" -f4 | cut -d"]" -f1)"@ship"
+	else
+		DOCKENTITY=$(echo $DOCKSTRING | cut -d"[" -f4 | cut -d"]" -f1 | cut -d"_" -f3- | cut -d"(" -f1)"@station"
+	fi
+#	echo $DOCKENTITY
+	if (grep "{$DOCKSHIP}" $SHIPLOG >/dev/null)
+	then
+		SHIPDATA=($(grep "{$DOCKSHIP}" $SHIPLOG))
+		SHIPDATA[2]="<$DOCKENTITY>"
+		as_user "sed -i 's/{$DOCKSHIP} .*/$(echo ${SHIPDATA[@]})/g' $SHIPLOG"
+	else
+		as_user "echo {$DOCKSHIP} \[~Unknown\] \<$DOCKENTITY\> \(~Unknown\) >> $SHIPLOG" 
+	fi
+elif [ $1 = "undocking" ]
+then
+	DOCKSTRING=${@:2}
+	DOCKSHIP=$(echo $DOCKSTRING | cut -d"[" -f3 | cut -d"]" -f1)
+#	echo $DOCKSHIP
+	if (grep "{$DOCKSHIP}" $SHIPLOG >/dev/null)
+	then
+		SHIPDATA=($(grep "{$DOCKSHIP}" $SHIPLOG))
+		SHIPDATA[2]="<~none>"
+		as_user "sed -i 's/{$DOCKSHIP} .*/$(echo ${SHIPDATA[@]})/g' $SHIPLOG"
+	else
+		as_user "echo {$DOCKSHIP} \[~Unknown\] \<~none\> \(~Unknown\) >> $SHIPLOG"
+	fi
+fi
+}
+log_checkbounty(){ 
+#echo "Checking Bounty for $2 for playerkiller $1" 
+source $PLAYERFILE/$2
+BOUNTYAMOUNT=$Bounty
+if [ "$BOUNTYAMOUNT" -eq 0 ]
+then
+#echo "No bounty detected"
+NOBOUNTY=1
+else
+#	echo "Current bounty for player killed $BOUNTYAMOUNT"
+	BOUNTYTIME=$BountyPlaced
+#	echo "Current time of bounty for player killed $BountyPlaced"
+	LASTKILLEDPLAYER=$PlayerKilledBy
+#	echo "This is the last player to kill dead player $LASTKILLEDPLAYER"
+	LASTKILLEDTIME=$PlayerKilledtime
+#	echo "This is the time of the last player to kill dead player $LASTKILLEDTIME"
+	source $PLAYERFILE/$1
+	LASTPLAYERKILLED=$PlayerLastKilled
+#	echo "This is the last player the playerkiller killed $LASTPLAYERKILLED"
+	PLAYERBALANCE=$CreditsInBank
+#	echo "This is the current credits in the bank for the playerkiller $CreditsInBank"
+	if [ "$LASTPLAYERKILLED" == "$2" ] 
+	then
+#		echo "Kills match testimg"
+		if [ "$BOUNTYTIME" -lt "$LASTKILLEDTIME" ]
+		then
+#			echo "Bounty posted before kill"					
+#			echo "This is the player balance $PLAYERBALANCE that is recieving the bounty"
+			NEWBALANCE=$(( $PLAYERBALANCE + $BOUNTYAMOUNT ))
+#			echo "This is the new player balance $NEWBALACE"
+			as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
+			as_user "sed -i 's/Bounty=.*/Bounty=0/g' $PLAYERFILE/$2"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - You received $BOUNTYAMOUNT credits in you account from eliminating $2\n'"
+		else
+#			echo "Bounty posted after kill"
+			BOUNTYAFTERKILL=1
+		fi
+	fi
 fi
 }
 
@@ -1473,13 +1746,13 @@ done
 spam_prevention(){
 if [ $SPAMPREVENTION = "Yes" ]
 then
-	CHATCOUNT=$(grep "ChatCount:" $PLAYERFILE/$1 | cut -d" " -f2)
-	SPAMWARNING=$(grep "SpamWarning:" $PLAYERFILE/$1 | cut -d" " -f2)
-	SPAMKICKS=$(grep "SpamKicks:" $PLAYERFILE/$1 | cut -d" " -f2)
+	CHATCOUNT=$(grep "ChatCount=" $PLAYERFILE/$1 | cut -d= -f2)
+	SPAMWARNING=$(grep "SpamWarning=" $PLAYERFILE/$1 | cut -d= -f2)
+	SPAMKICKS=$(grep "SpamKicks=" $PLAYERFILE/$1 | cut -d= -f2)
 # If the player has sent more messages than is allowed in the specified timeframe and they have not been warned
 	if [ $CHATCOUNT -gt $SPAMLIMIT ] && [ $SPAMWARNING = "No" ]
 	then
-		as_user "sed -i 's/SpamWarning: .*/SpamWarning: Yes/g' $PLAYERFILE/$1"
+		as_user "sed -i 's/SpamWarning=.*/SpamWarning=Yes/g' $PLAYERFILE/$1"
 # If they have been kicked less times than the limit, then warn them they will be kicked, otherwise warn them they will be banned
 		if [ $SPAMKICKS -le $SPAMKICKLIMIT ]
 		then
@@ -1494,7 +1767,7 @@ then
 # Gives them time to receive the message
 		sleep 0.1
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
-		as_user "sed -i 's/SpamKicks: .*/SpamKicks: $(($SPAMKICKS + 1))/g' $PLAYERFILE/$1"
+		as_user "sed -i 's/SpamKicks=.*/SpamKicks=$(($SPAMKICKS + 1))/g' $PLAYERFILE/$1"
 # If they have sent more than the limit + the buffer many messages, and they have been warned, and they have been kicked more than the limit, then ban them
 	elif [ $CHATCOUNT -gt $(($SPAMLIMIT + $SPAMALLOWANCE)) ] && [ $SPAMWARNING = "Yes" ] && [ $SPAMKICKS -ge $SPAMKICKLIMIT ]
 	then
@@ -1505,13 +1778,13 @@ then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
 	fi
 # Add 1 to their ChatCount, wait until the spamtimer expires, then remove it from the count.
-	as_user "sed -i 's/ChatCount: .*/ChatCount: $(($CHATCOUNT + 1))/g' $PLAYERFILE/$1"
+	as_user "sed -i 's/ChatCount=.*/ChatCount=$(($CHATCOUNT + 1))/g' $PLAYERFILE/$1"
 	sleep $SPAMTIMER
-	CHATCOUNT=$(grep "ChatCount:" $PLAYERFILE/$1 | cut -d" " -f2)
+	CHATCOUNT=$(grep "ChatCount=" $PLAYERFILE/$1 | cut -d= -f2)
 # Ensures they cannot get a - Chat count (When they relog ChatCount gets set to 0)
 	if [ $CHATCOUNT -gt 0 ]
 	then
-		as_user "sed -i 's/ChatCount: .*/ChatCount: $(($CHATCOUNT - 1))/g' $PLAYERFILE/$1"
+		as_user "sed -i 's/ChatCount=.*/ChatCount=$(($CHATCOUNT - 1))/g' $PLAYERFILE/$1"
 	fi
 fi
 }
@@ -1535,18 +1808,18 @@ then
 	if [ $SWEARMSG -gt 0 ]
 	then
 #		Gets the saved SwaerCount (how many swear words recently sent) and SwearKicks (how many kicks for swearing the player has had)
-		SWEARCOUNT=$(grep "SwearCount:" $PLAYERFILE/$1 | cut -d" " -f2)
-		SWEARKICKS=$(grep "SwearKicks:" $PLAYERFILE/$1 | cut -d" " -f2)
+		SWEARCOUNT=$(grep "SwearCount=" $PLAYERFILE/$1 | cut -d= -f2)
+		SWEARKICKS=$(grep "SwearKicks=" $PLAYERFILE/$1 | cut -d= -f2)
 #		If they have sworn less than the limit, then warn them
 		if [ $(($SWEARCOUNT + $SWEARMSG)) -lt $SWEARLIMIT ]
 		then
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please dont swear, it isnt pleasent for other players.\n'"
-			as_user "sed -i 's/SwearCount: .*/SwearCount: $(($SWEARCOUNT + $SWEARMSG))/g' $PLAYERFILE/$1"
+			as_user "sed -i 's/SwearCount=.*/SwearCount=$(($SWEARCOUNT + $SWEARMSG))/g' $PLAYERFILE/$1"
 			sleep $SWEARTIMER
-			SWEARCOUNT=$(grep "SwearCount:" $PLAYERFILE/$1 | cut -d" " -f2)
+			SWEARCOUNT=$(grep "SwearCount=" $PLAYERFILE/$1 | cut -d= -f2)
 			if [ $SWEARCOUNT -ge $SWEARCOUNT ]
 			then
-				as_user "sed -i 's/SwearCount: .*/SwearCount: $(($SWEARCOUNT - $SWEARCOUNT))/g' $PLAYERFILE/$1"
+				as_user "sed -i 's/SwearCount=.*/SwearCount=$(($SWEARCOUNT - $SWEARCOUNT))/g' $PLAYERFILE/$1"
 			fi
 #		If they have sworn up to the limit, warn them of a kick
 		elif [ $(($SWEARCOUNT + $SWEARMSG)) -eq $SWEARLIMIT ]
@@ -1557,12 +1830,12 @@ then
 			else
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Do not swear. You will be BANNED if you do again.\n'"
 			fi
-			as_user "sed -i 's/SwearCount: .*/SwearCount: $(($SWEARCOUNT + $SWEARMSG))/g' $PLAYERFILE/$1"
+			as_user "sed -i 's/SwearCount=.*/SwearCount=$(($SWEARCOUNT + $SWEARMSG))/g' $PLAYERFILE/$1"
 			sleep $SWEARTIMER
-			SWEARCOUNT=$(grep "SwearCount:" $PLAYERFILE/$1 | cut -d" " -f2)
+			SWEARCOUNT=$(grep "SwearCount=" $PLAYERFILE/$1 | cut -d= -f2)
 			if [ $SWEARCOUNT -ge $SWEARCOUNT ]
 			then
-				as_user "sed -i 's/SwearCount: .*/SwearCount: $(($SWEARCOUNT - $SWEARCOUNT))/g' $PLAYERFILE/$1"
+				as_user "sed -i 's/SwearCount=.*/SwearCount=$(($SWEARCOUNT - $SWEARCOUNT))/g' $PLAYERFILE/$1"
 			fi
 #		If they have sworn more than the limit then kick/ban them
 		elif [ $(($SWEARCOUNT + $SWEARMSG)) -gt $SWEARLIMIT ]
@@ -1571,7 +1844,7 @@ then
 			if [ $SWEARKICKS -lt $SWEARKICKLIMIT ]
 			then
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Swearing will not be tolerated. You have been kicked.\n'"
-				as_user "sed -i 's/SwearKicks: .*/SwearKicks: $(($SWEARKICKS + 1))/g' $PLAYERFILE/$1"
+				as_user "sed -i 's/SwearKicks=.*/SwearKicks=$(($SWEARKICKS + 1))/g' $PLAYERFILE/$1"
 				sleep 0.1
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
 			else
@@ -1600,20 +1873,20 @@ then
 		if [ $((($CAPSAMOUNT * 100) / $CHATLENGTH)) -gt $CAPSPERCENT ]
 		then
 #			Get the number of excessive caps messages and kicks for caps
-			CAPSCOUNT=$(grep "CapsCount:" $PLAYERFILE/$1 | cut -d" " -f2)
-			CAPSKICK=$(grep "CapsKicks:" $PLAYERFILE/$1 | cut -d" " -f2)
+			CAPSCOUNT=$(grep "CapsCount=" $PLAYERFILE/$1 | cut -d= -f2)
+			CAPSKICK=$(grep "CapsKicks=" $PLAYERFILE/$1 | cut -d= -f2)
 #			If they havent reached the limit, then warn them.
 			if [ $CAPSCOUNT -lt $CAPSLIMIT ]
 			then
-				as_user "sed -i 's/CapsCount: .*/CapsCount: $(($CAPSCOUNT + 1))/g' $PLAYERFILE/$1"
+				as_user "sed -i 's/CapsCount=.*/CapsCount=$(($CAPSCOUNT + 1))/g' $PLAYERFILE/$1"
 				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please dont use caps lock.\n'"
 				sleep $CAPSTIMER
-				CAPSCOUNT=$(grep "CapsCount:" $PLAYERFILE/$1 | cut -d" " -f2)
-				as_user "sed -i 's/CapsCount: .*/CapsCount: $(($CAPSCOUNT - 1))/g' $PLAYERFILE/$1"
+				CAPSCOUNT=$(grep "CapsCount=" $PLAYERFILE/$1 | cut -d= -f2)
+				as_user "sed -i 's/CapsCount=.*/CapsCount=$(($CAPSCOUNT - 1))/g' $PLAYERFILE/$1"
 #			If theyre at the limit, then warn them of a kick/ban
 			elif [ $CAPSCOUNT -eq $CAPSLIMIT ]
 			then
-				as_user "sed -i 's/CapsCount: .*/CapsCount: $(($CAPSCOUNT + 1))/g' $PLAYERFILE/$1"
+				as_user "sed -i 's/CapsCount=.*/CapsCount=$(($CAPSCOUNT + 1))/g' $PLAYERFILE/$1"
 				if [ $CAPSKICK -lt $CAPSKICKLIMIT ]
 				then
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 If you continue to use caps lock then you will be kicked.\n'"
@@ -1621,15 +1894,15 @@ then
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 If you continue to use caps lock then you will be BANNED.\n'"
 				fi
 				sleep $CAPSTIMER
-				CAPSCOUNT=$(grep "CapsCount:" $PLAYERFILE/$1 | cut -d" " -f2)
-				as_user "sed -i 's/CapsCount: .*/CapsCount: $(($CAPSCOUNT - 1))/g' $PLAYERFILE/$1"
+				CAPSCOUNT=$(grep "CapsCount=" $PLAYERFILE/$1 | cut -d= -f2)
+				as_user "sed -i 's/CapsCount=.*/CapsCount=$(($CAPSCOUNT - 1))/g' $PLAYERFILE/$1"
 #			If theyre above the limit, then kick/ban them
 			elif [ $CAPSCOUNT -gt $CAPSLIMIT ]
 			then
 				if [ $CAPSKICK -lt $CAPSKICKLIMIT ]
 				then
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have been kicked for excessive caps.\n'"
-					as_user "sed -i 's/CapsKicks: .*/CapsKicks: $(($CAPSKICK + 1))/g' $PLAYERFILE/$1"
+					as_user "sed -i 's/CapsKicks=.*/CapsKicks=$(($CAPSKICK + 1))/g' $PLAYERFILE/$1"
 					sleep 0.1
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/kick $1\n'"
 				else
@@ -1695,11 +1968,11 @@ fi
 if [ $CUSTOMSPAWNING = "Yes" ] && ! grep -qF -- "[$1]" $PROTECTEDSECTORS
 then
 #	Gets the players heat (spawn chance) and time of next allowed spawn
-	PLAYERHEAT=$(grep "PlayerHeat:" $PLAYERFILE/$2 | cut -d" " -f2)
-	PIRATECOOLDOWN=$(grep "PirateCooldown:" $PLAYERFILE/$2 | cut -d" " -f2)
+	PLAYERHEAT=$(grep "PlayerHeat" $PLAYERFILE/$2 | cut -d= -f2)
+	PIRATECOOLDOWN=$(grep "PirateCooldown=" $PLAYERFILE/$2 | cut -d= -f2)
 	NEWHEAT=$(($PLAYERHEAT + 1))
 #	Increments heat by 1
-	as_user "sed -i 's/PlayerHeat: .*/PlayerHeat: $NEWHEAT/g' $PLAYERFILE/$2"
+	as_user "sed -i 's/PlayerHeat=.*/PlayerHeat=$NEWHEAT/g' $PLAYERFILE/$2"
 #	Generates a random number between 0 and 100. If that number is less than $SPAWNCHANCE then a pirate wave is spawned
 	RAND=$(($RANDOM % 100))
 	SPAWNCHANCE=$(($NEWHEAT * $NEWHEAT))
@@ -1717,18 +1990,21 @@ then
 #			Picks a random ship BP to spawn
 			SPAWNSHIP=$(($RANDOM % ${#PIRATENAMES[@]}))
 #			$(date +%s)$RANDOM gives each ship a unique name
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity ${PIRATENAMES[$SPAWNSHIP]} MOB_CUSTOM_PIRATE_$(date +%s)$RANDOM $(echo $1 | tr "," " ") -1 True\n'"
+			INTERNALX=$(($RANDOM/100 - 163))
+			INTERNALY=$(($RANDOM/100 - 163))
+			INTERNALZ=$(($RANDOM/100 - 163))
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity_pos ${PIRATENAMES[$SPAWNSHIP]} MOB_CUSTOM_PIRATE_$(date +%s)$RANDOM $(echo $1 | tr "," " ") $INTERNALX $INTERNALY $INTERNALZ -1 True\n'"
 			sleep 0.1
 		done
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $2 $NUMOFSPAWNS pirates have locked onto you and warped in!\n'"
 #		Sets a delay on when the next spawn for that player can be
-		as_user "sed -i 's/PirateCooldown: .*/PirateCooldown: $(($(date +%s) + $PIRATECOOLTIMER))/g' $PLAYERFILE/$2"
+		as_user "sed -i 's/PirateCooldown=.*/PirateCooldown=$(($(date +%s) + $PIRATECOOLTIMER))/g' $PLAYERFILE/$2"
 	fi
 #	Reduces the heat by 1 after 180s
 	sleep 180
-	PLAYERHEAT=$(grep "PlayerHeat:" $PLAYERFILE/$2 | cut -d" " -f2)
+	PLAYERHEAT=$(grep "PlayerHeat=" $PLAYERFILE/$2 | cut -d= -f2)
 	NEWHEAT=$(($PLAYERHEAT - 1))
-	as_user "sed -i 's/PlayerHeat: .*/PlayerHeat: $NEWHEAT/g' $PLAYERFILE/$2"
+	as_user "sed -i 's/PlayerHeat=.*/PlayerHeat=$NEWHEAT/g' $PLAYERFILE/$2"
 fi
 }
 sectorincome(){
@@ -1762,46 +2038,49 @@ do
 #		Tells the while loop what file to read
 		done < $SECTORFILE
 #	Ensures it runs every hour
+		fi
 	sleep 3600
-	fi
 done
 	
 }
 sectorfees(){
 while [ -e /proc/$SM_LOG_PID ]
 do 
-	for FACTION in $FACTIONFILE/*
-	do
-		FACTIONID=$(echo $FACTION | rev | cut -d"/" -f1 | rev)
-		OWNEDSECTORS=($(grep "OwnedSectors=" $FACTION | cut -d"=" -f2-))
-		FACTIONCREDITS=$(grep "CreditsInBank=" $FACTION | cut -d= -f2)
-		FEES=$(echo "(${#OWNEDSECTORS[@]}*$DAILYFEES)/24" | bc -l | cut -d"." -f1)
-		FACTIONCREDITS=$(($FACTIONCREDITS-$FEES))
-		if [ $FACTIONCREDITS -lt 0 ] && [ $(($FACTIONCREDITS+$FEES)) -gt 0 ] && [ $FEES -gt 0 ]
-		then
-			UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTIONID | cut -d" " -f2)
-			as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTIONID"
-			CURRENTMAILID=$(grep "CurrentMailId:" $MAILFILE/FAC@$FACTIONID | cut -d" " -f4)
-			echo "MessageID: $CURRENTMAILID Unread: Yes Sender: GALACTICEBANK Time: $(date +%s) Message: Your faction has run out of credits! You have 48 hours to pay off your debt or you will lose your sectors, 1 sector every hour!" >> $MAILFILE/FAC@$FACTIONID
-			as_user "sed -i 's/CurrentMailId: $CURRENTMAILID/CurrentMailId: $(($CURRENTMAILID + 1))/g' $MAILFILE/FAC@$FACTIONID" 
-		elif [ $FACTIONCREDITS -lt $((-$FEES*48)) ] && [ $FEES -gt 0 ]
-		then
-			SECTOR=${OWNEDSECTORS[0]}
-			BEACONNAME=$(grep -- " $SECTOR " $SECTORFILE | cut -d" " -f6)
-			as_user "sed -i '/ $SECTOR .*/d' $SECTORFILE"
-			as_user "sed -i 's/ $SECTOR//g' $FACTION"
-			as_user "sed -i '/[$SECTOR]/d' $PROTECTEDSECTORS"
-			UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTIONID | cut -d" " -f2)
-			as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTIONID"
-			CURRENTMAILID=$(grep "CurrentMailId:" $MAILFILE/FAC@$FACTIONID | cut -d" " -f4)
-			echo "MessageID: $CURRENTMAILID Unread: Yes Sender: GALACTICEBANK Time: $(date +%s) Message: Your beacon in sector $SECTOR has been deactivated as repayment for your debt." >> $MAILFILE/FAC@$FACTIONID
-			as_user "sed -i 's/CurrentMailId: $CURRENTMAILID/CurrentMailId: $(($CURRENTMAILID + 1))/g' $MAILFILE/FAC@$FACTIONID"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all $BEACONNAME unused false\n'"
-			sectoradjacent $FACTIONID
-		fi
-		as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$FACTIONCREDITS/g' $FACTION"
-	done
-sleep 3600
+	if [ "$(ls -A $FACTIONFILE)" ]
+	then
+		for FACTION in $FACTIONFILE/*
+		do
+			FACTIONID=$(echo $FACTION | rev | cut -d"/" -f1 | rev)
+			OWNEDSECTORS=($(grep "OwnedSectors=" $FACTION | cut -d"=" -f2-))
+			FACTIONCREDITS=$(grep "CreditsInBank=" $FACTION | cut -d= -f2)
+			FEES=$(echo "(${#OWNEDSECTORS[@]}*$DAILYFEES)/24" | bc -l | cut -d"." -f1)
+			FACTIONCREDITS=$(($FACTIONCREDITS-$FEES))
+			if [ $FACTIONCREDITS -lt 0 ] && [ $(($FACTIONCREDITS+$FEES)) -gt 0 ] && [ $FEES -gt 0 ]
+			then
+				UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTIONID | cut -d" " -f2)
+				as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTIONID"
+				CURRENTMAILID=$(grep "CurrentMailId:" $MAILFILE/FAC@$FACTIONID | cut -d" " -f4)
+				echo "MessageID: $CURRENTMAILID Unread: Yes Sender: GALACTICEBANK Time: $(date +%s) Message: Your faction has run out of credits! You have 48 hours to pay off your debt or you will lose your sectors, 1 sector every hour!" >> $MAILFILE/FAC@$FACTIONID
+				as_user "sed -i 's/CurrentMailId: $CURRENTMAILID/CurrentMailId: $(($CURRENTMAILID + 1))/g' $MAILFILE/FAC@$FACTIONID" 
+			elif [ $FACTIONCREDITS -lt $((-$FEES*48)) ] && [ $FEES -gt 0 ]
+			then
+				SECTOR=${OWNEDSECTORS[0]}
+				BEACONNAME=$(grep -- " $SECTOR " $SECTORFILE | cut -d" " -f6)
+				as_user "sed -i '/ $SECTOR .*/d' $SECTORFILE"
+				as_user "sed -i 's/ $SECTOR//g' $FACTION"
+				as_user "sed -i '/[$SECTOR]/d' $PROTECTEDSECTORS"
+				UNREADCOUNT=$(grep "UnreadMail" $MAILFILE/FAC@$FACTIONID | cut -d" " -f2)
+				as_user "sed -i 's/UnreadMail: $UNREADCOUNT/UnreadMail: $(($UNREADCOUNT + 1))/g' $MAILFILE/FAC@$FACTIONID"
+				CURRENTMAILID=$(grep "CurrentMailId:" $MAILFILE/FAC@$FACTIONID | cut -d" " -f4)
+				echo "MessageID: $CURRENTMAILID Unread: Yes Sender: GALACTICEBANK Time: $(date +%s) Message: Your beacon in sector $SECTOR has been deactivated as repayment for your debt." >> $MAILFILE/FAC@$FACTIONID
+				as_user "sed -i 's/CurrentMailId: $CURRENTMAILID/CurrentMailId: $(($CURRENTMAILID + 1))/g' $MAILFILE/FAC@$FACTIONID"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all $BEACONNAME unused false\n'"
+				sectoradjacent $FACTIONID
+			fi
+			as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$FACTIONCREDITS/g' $FACTION"
+		done
+	fi
+	sleep 3600
 done
 }
 sectoradjacent(){
@@ -1841,7 +2120,7 @@ done
 
 #---------------------------Files Daemon Writes and Updates---------------------------------------------
 
-write_factionfile() { #Must update how all these variables for grep and sed due to = change. Parameter of Faction must be passed
+write_factionfile() { 
 CREATEFACTION="cat > $FACTIONFILE/$1 <<_EOF_
 CreditsInBank=0
 OwnedSectors=0
@@ -1909,6 +2188,8 @@ FACTIONFILE=$STARTERPATH/factionfiles #The folder that contains individual facti
 BARREDWORDS=$STARTERPATH/logs/barredwords.log #The file that contains all blocked words (for use with SwearPrevention)
 SECTORFILE=$STARTERPATH/logs/sectordata.log #The file that contains a list of all owned sectors, and their stats
 PROTECTEDSECTORS=$STARTERPATH/logs/protected.log #Contains a list of all protected sectors (only works with custom spawning)
+HARDCORECONFIG=$STARTERPATH/starmadedhardcore.cfg #Contains all settings for the hardcore server
+HARDCOREFILES=$STARTERPATH/hardcore #Contains all hardcore related files
 #-------------------------Chat Settings-------------------------------------------------------------------
 SPAMPREVENTION=Yes # Turns on or off the SpamPrevention system (Yes/No)
 SPAMLIMIT=5 # The number of messages that can be sent within the $SPAMTIMER before a player will be warned
@@ -1938,6 +2219,7 @@ BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering
 BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store
 SECTORREFUND=90 #The percentage of credits back from selling a sector
 #------------------------Game settings----------------------------------------------------------------------------
+HARDCORE=NO
 GATECOST=50 #Number of voting points needed to spawn a gate
 #Gate level stats. GATETEIR[LEVEL]equals\"vote-cost warm-up-time cool-down-time\" Can be expanded following the same format infinitely
 GATETEIR[1]=\"0 15 180\"
@@ -1961,13 +2243,14 @@ STARTINGRANK=Ensign #The initial rank players recieve when they log in for the f
 _EOF_"
 as_user "$CONFIGCREATE"
 }
-write_playerfile() { #Must update how all these variables for grep and sed due to = change.  Parameter of Player must be passed
+write_playerfile() {
 PLAYERCREATE="cat > $PLAYERFILE/$1 <<_EOF_
-Rank: [$STARTINGRANK]
+Rank=$STARTINGRANK
 CreditsInBank=0
 VotingPoints=0
 CurrentVotes=0
 Bounty=0
+BountyPlaced=0
 WarpTeir=1
 JumpDisabled=0
 CommandConfirm=0
@@ -1983,6 +2266,7 @@ PlayerLastFold=0
 PlayerLastUpdate=0
 PlayerLastKilled=None
 PlayerKilledBy=None
+PlayerKilledtime=0
 PlayerLoggedIn=No
 ChatCount=0
 SpamWarning=No
@@ -1999,11 +2283,11 @@ as_user "$PLAYERCREATE"
 }
 write_rankcommands() {
 CREATERANK="cat > $RANKCOMMANDS <<_EOF_
-Ensign MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE GIVEHARD GIVENORMAL GIVE TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART
-Lieutenant MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK
-Commander MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN
-Captain MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN RESTART DESPAWN KILL BANHAMMER TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART
-Admiral MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE MAILALL ADMINADDJUMP ADMINDELETEJUMP RANKSET RANKUSER BANHAMMER KILL WHITEADD BANPLAYER UNBAN SHUTDOWN RESTART CREDITS IMPORT EXPORT DESPAWN LOADSHIP GIVE GIVENORMALGIVEHARD KICK GODON GODOFF INVISION INVISIOFF TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART MYDETAILS ADMINCOOLDOWN ADMINREADFILE THREADDUMP GIVESET GIVEMETA
+Ensign MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
+Lieutenant MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
+Commander MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
+Captain MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE WHITEADD KICK BANPLAYER UNBAN RESTART DESPAWN KILL BANHAMMER TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
+Admiral MAIL POSTBOUNTY LISTBOUNTY COLLECTBOUNTY FOLD ADDJUMP JUMPLIST JUMP UPGRADEJUMP DESTROYJUMP DEPOSIT WITHDRAW TRANSFER BALANCE RANKME RANKLIST RANKCOMMAND PLAYERWHITELIST VOTEBALANCE HELP CORE SEARCH CLEAR LISTWHITE MAILALL ADMINADDJUMP ADMINDELETEJUMP RANKSET RANKUSER BANHAMMER KILL WHITEADD BANPLAYER UNBAN SHUTDOWN RESTART CREDITS IMPORT EXPORT DESPAWN LOADSHIP GIVE GIVESET KICK GODON GODOFF INVISION INVISIOFF TELEPORT PROTECT UNPROTECT SPAWNSTOP SPAWNSTART MYDETAILS ADMINCOOLDOWN ADMINREADFILE THREADDUMP GIVESET GIVEMETA BUYSECTOR SECTORLIST BEACONWITHDRAW BEACONBALANCE BEACONSELL FMAIL FDEPOSIT FWITHDRAW FBALANCE
 Admin -ALL-
 _EOF_"
 as_user "$CREATERANK"
@@ -2016,7 +2300,6 @@ Ever wanted to be rewarded for voting for the server? Vote now at starmade-serve
 Been voting a lot lately? You can spend your voting points on a Jump Gate! Try !ADDJUMP 
 Want to reward people for killing your arch enemy? Try !POSTBOUNTY
 Fancy becoming a bounty hunter? Use !LISTBOUNTY to see all bounties
-Killed someone with a bounty recently? Try using !COLLECTBOUNTY
 Got too much money? Store some in your bank account with !DEPOSIT
 Need to get some money? Take some out of your bank account with !WITHDRAW
 Stuck in the middle of nowhere but dont want to suicide? Try !CORE
@@ -2025,6 +2308,12 @@ Logged in and you have an unread message? Try !MAIL LIST Unread
 Want to secretly use a command? Try using a command inside a PM to yourself!
 _EOF_"
 as_user "$CREATETIP"
+}
+create_configpath() {
+if [ ! -e $CONFIGPATH ]
+then
+	write_configpath
+fi
 }
 create_tipfile(){
 if [ ! -e $TIPFILE ]
@@ -2060,19 +2349,19 @@ fi
 }
 update_file() {
 #echo "Starting Update"
-#echo "$2 is the write function to update the old config filename"
-#echo "$3 is the name of the specific file for functions like playerfile or factionfile"
+#echo "$1 is the write function to update the old config filename"
+#echo "$2 is the name of the specific file for functions like playerfile or factionfile"
 # Grab first occurrence of value from the Daemon file itself to be used to determine correct path
-DLINE=$(grep -n -m 1 $2 $DAEMONPATH | cut -d : -f 1)
+DLINE=$(grep -n -m 1 $1 $DAEMONPATH | cut -d : -f 1)
 #echo "This is the starting line for the write function $DLINE"
 let DLINE++
 EXTRACT=$(sed -n "${DLINE}p" $DAEMONPATH)
-#echo "Here is the second line of write funtion $EXTRACT"
-if [ "$#" -eq "3" ]
+# echo "Here is the second line of write funtion $EXTRACT"
+if [ "$#" -eq "2" ]
 then
 	PATHUPDATEFILE=$(echo $EXTRACT | cut -d$ -f2- | cut -d/  -f1)
 #	echo "Extraction from Daemon $PATHUPDATEFILE"
-	PATHUPDATEFILE=${!PATHUPDATEFILE}/$3
+	PATHUPDATEFILE=${!PATHUPDATEFILE}/$2
 #	echo "modified directory $PATHUPDATEFILE"
 else
 	PATHUPDATEFILE=$(echo $EXTRACT | cut -d$ -f2- | cut -d" " -f1)
@@ -2081,15 +2370,15 @@ else
 	PATHUPDATEFILE=${!PATHUPDATEFILE}
 	cp $PATHUPDATEFILE $PATHUPDATEFILE.old
 fi
-#echo "This is the actual path to the file to be updated $PATHUPDATEFILE"
+# echo "This is the actual path to the file to be updated $PATHUPDATEFILE"
 #This is how you would compare files for future work ARRAY=( $(grep -n -Fxvf test1 test2) )
 OLD_IFS=$IFS
 IFS=$'\n'
 # Create an array of the old file
 OLDFILESTRING=( $(cat $PATHUPDATEFILE) )
 as_user "rm $PATHUPDATEFILE"
-# $2 is the write file function for the file being updated and if $3 is set it will use specific file
-$2 $3
+# $1 is the write file function for the file being updated and if $2 is set it will use specific file
+$1 $2
 # Put the newly written file into an array
 NEWFILESTRING=( $(cat $PATHUPDATEFILE) )
 IFS=$OLD_IFS
@@ -2100,30 +2389,33 @@ while [ -n "${NEWFILESTRING[$NEWARRAY]+set}" ]
 do
 	NEWSTR=${NEWFILESTRING[$NEWARRAY]}
 	OLDARRAY=0
+	WRITESTRING=$NEWSTR
 	while [ -n "${OLDFILESTRING[$OLDARRAY]+set}" ]
 	do
+	OLDSTR=${OLDFILESTRING[$OLDARRAY]}
 # If a = is detected grab the value to the right of = and then overwrite the new value
-	if [[ $NEWSTR == *=* ]]
+	if [[ $OLDSTR == *=* ]]
 	then
-		NEWVAR=${NEWSTR%=*}
-		NEWVAL=${NEWSTR##*=}
-		OLDSTR=${OLDFILESTRING[$OLDARRAY]}
-		OLDVAR=${OLDSTR%=*}
-		OLDVAL=${OLDSTR##*=}
-		if [ "$OLDVAR" = "$NEWVAR" ]
+		NEWVAR=${NEWSTR%%=*}
+#		echo "Here is the NEWVAR $NEWVAR"
+		NEWVAL=${NEWSTR#*=}
+#		echo "Here is the NEWVAL $NEWVAL"
+		OLDVAR=${OLDSTR%%=*}
+#		echo "Here is the OLDVAR $OLDVAR"
+		OLDVAL=${OLDSTR#*=}
+#		echo "Here is the OLDVAL $OLDVAL"
+		if [[ "$OLDVAR" == "$NEWVAR" ]]
 		then
+#			echo "Matched oldvar $OLDVAR to newvar $NEWVAR"
 			WRITESTRING=${NEWSTR/$NEWVAL/$OLDVAL} 
-			break
 		fi
-	else
-		WRITESTRING=$NEWSTR
 	fi
 	let OLDARRAY++
 	done
-#	echo "$WRITESTRING"
-	cat <<EOF >> $PATHUPDATEFILE
+#	echo "Here is the writestring $WRITESTRING"	
+	as_user "cat <<EOF >> $PATHUPDATEFILE
 $WRITESTRING
-EOF
+EOF"
 let NEWARRAY++
 done
 }
@@ -2132,10 +2424,229 @@ update_file write_configpath
 update_file write_barredwords
 update_file write_tipfile
 update_file write_rankcommands
-
-
-# Update the Hash here
+PUPDATE=( $(ls $PLAYERFILE) )
+PARRAY=0
+while [ -n "${PUPDATE[$PARRAY]+set}" ] 
+do
+update_file write_playerfile ${PUPDATE[$PARRAY]}
+#echo "${PUPDATE[$PARRAY]} file is being updated"
+let PARRAY++
+done
+FUPDATE=( $(ls $FACTIONFILE) )
+FARRAY=0
+while [ -n "${FUPDATE[$FARRAY]+set}" ] 
+do
+update_file write_factionfile ${FUPDATE[$FARRAY]}
+#echo "${FUPDATE[$FARRAY]} file is being updated"
+let FARRAY++
+done
+CURRENTHASH=$(md5sum $DAEMONPATH |  cut -d" " -f1 | tr -d ' ')
+# Update the HASH
+as_user "sed -i 's/HASH=.*/HASH=$CURRENTHASH/g' $CONFIGPATH"
 }
+
+#---------------------------Hardcore functions----------------------------------------
+
+generate_sectorlist(){
+	VALIDRANGE=()
+#	Gets all numbers between the positive and negative values given
+	RANGEINCLUDE=$(eval echo {-${2}..${2}})
+#	Gets all numbers between the positive and negative values given
+	RANGEEXCLUDE=$(eval echo {-${3}..${3}})
+#	Gets the percentage of all sectors that will be marked as spawnable
+	RANGEPERCENT=${4}
+#	Gets the file to which the sectors will be written
+	WRITEFILE=$HARDCOREFILES/${1}.txt
+#	Makes sure any sectors marked as not included are left out
+	for COORD in ${RANGEINCLUDE[@]}
+	do	
+		if [[ ! $RANGEEXCLUDE =~ $COORD ]]
+		then
+			VALIDRANGE+=($COORD)
+		fi
+	done
+	TOTALSECTORS=$(())
+#	Loops over the majourity of the sectors to be made (the entire +-X face on both sides up untill the first exclusion sector)
+	for XCOORD in ${VALIDRANGE[@]}
+	do
+		for YCOORD in ${RANGEINCLUDE[@]}
+		do
+			for ZCOORD in ${RANGEINCLUDE[@]}
+			do
+				if [ $(($RANDOM % 100)) -le $RANGEPERCENT ]
+				then
+					as_user "echo [$XCOORD,$YCOORD,$ZCOORD] >> $WRITEFILE"
+					echo -ne "Working... Added sector $XCOORD,$YCOORD,$ZCOORD   	to $1\r"
+				fi
+			done
+		done
+	done
+#	Loops over the next portion (All remaining sectors on the +-Z faces untill the first exclusion sector)
+	for ZCOORD in ${VALIDRANGE[@]}
+	do
+		for YCOORD in ${RANGEINCLUDE[@]}
+		do
+			for XCOORD in ${RANGEINCLUDE[@]}
+			do
+				if [[ ! ${VALIDRANGE[@]} =~ $XCOORD ]]
+				then
+					if [ $(($RANDOM % 100)) -le $RANGEPERCENT ]
+					then
+						as_user "echo [$XCOORD,$YCOORD,$ZCOORD] >> $WRITEFILE"
+						echo -ne "Working... Added sector $XCOORD,$YCOORD,$ZCOORD   	to $1\r"
+					fi
+				fi
+			done
+		done
+	done
+#	Loops over the last portion (All remaining sectors on the +-Y faces untill the first exclusion point)
+	for YCOORD in ${VALIDRANGE[@]}
+	do
+		for ZCOORD in ${RANGEINCLUDE[@]}
+		do
+			if [[ ! ${VALIDRANGE[@]} =~ $ZCOORD ]]
+			then
+				for XCOORD in ${RANGEINCLUDE[@]}
+				do
+					if [[ ! ${VALIDRANGE[@]} =~ $XCOORD ]]
+					then
+						if [ $(($RANDOM % 100)) -le $RANGEPERCENT ]
+						then
+							as_user "echo [$XCOORD,$YCOORD,$ZCOORD] >> $WRITEFILE"
+							echo -ne "Working... Added sector $XCOORD,$YCOORD,$ZCOORD   	to $1\r"
+						fi
+					fi
+				done
+			fi
+		done
+	done
+	echo -ne "All sectors have been sucessfully generated for $1\n"
+}
+hardcore_removeobjects(){
+if [ "$HARDCORE" = "YES" ]
+then
+	while [ -e /proc/$SM_LOG_PID ]
+	do
+	#	Removes all abandoned stations
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all 13 all false\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all 14 all false\n'"
+	#	Removes all pirate stations
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all P13 all false\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all P14 all false\n'"
+	#	Removes all turrets attached to pirate bases
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all AITURRENT_ all true\n'"
+		sleep 10
+	done
+fi
+}
+hardcore_spawns(){
+if [ "$HARDCORE" = "YES" ]
+then
+	while read SECTOROFFSET
+	do
+#		This first section gets all sectors relative to the player, and checks each one
+		OFFSETX=$(echo $SECTOROFFSET | cut -d"," -f1 | tr -d "[")
+		OFFSETY=$(echo $SECTOROFFSET | cut -d"," -f2)
+		OFFSETZ=$(echo $SECTOROFFSET | cut -d"," -f3 | tr -d "]")
+		PLAYERX=$(echo $1 | cut -d"," -f1 | tr -d "[")
+		PLAYERY=$(echo $1 | cut -d"," -f2)
+		PLAYERZ=$(echo $1 | cut -d"," -f3 | tr -d "]")
+		TARGETSECTOR="$(($PLAYERX + $OFFSETX)),$(($PLAYERY + $OFFSETY)),$(($PLAYERZ + $OFFSETZ))"
+#		Checks in every sector list file for the target sector
+		for LEVELNO in ${!LEVEL[@]}
+		do
+			LEVELDATA=(${LEVEL[$LEVELNO]})
+#			Performs the same task as grep -q -- "\[$TARGETSECTOR\]" $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt) but is faster
+			if [[ $(cat $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt) =~ "[$TARGETSECTOR]" ]]
+			then
+#				If the sector is in the current sector list, then get the sectors data (sector number and cooldown)
+				SECTORDATA=($(grep "\[$TARGETSECTOR\]" $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt))
+#				If it has no cooldown (never been visited before) then start spawning
+				if [ ${#SECTORDATA[@]} -eq 1 ]
+				then
+#					Picks a random line from the sector teirs spawning file (each line is a sector spawn pattern)
+					SECTORSPAWN=($(shuf -n 1 $HARDCOREFILES/LevelSpawns${LEVELDATA[0]}.txt))
+#					Sets the internal sector positions to 1 so the first spawn in the list is in the exact center
+					INTERNALX=0
+					INTERNALY=0
+					INTERNALZ=0
+#					Loops over the number of entities spawned for that sector
+					for SPAWN in ${SECTORSPAWN[@]}
+					do
+#						Creates an entity UUID used for despawning it later
+						ENTITYUUID=ENTITY_HARDCORE_${SPAWN}_$(($(date +%s) + 86400))_$RANDOM
+#						Adds the entity UUID to a log file, for despawning later
+						echo $ENTITYUUID >> $HARDCOREFILES/CurrentSpawns.log
+#						Spawns the entity into the target sector at the specified position
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity_pos $SPAWN $ENTITYUUID $(echo $TARGETSECTOR | tr "," " ") $INTERNALX $INTERNALY $INTERNALZ 0 False\n'"
+#						the internal coords are randomized to between -163 and +163 on each axis
+						INTERNALX=$(($RANDOM/100 - 163))
+						INTERNALY=$(($RANDOM/100 - 163))
+						INTERNALZ=$(($RANDOM/100 - 163))
+					done
+#					Sets the cooldown for 24hours
+					as_user "sed -i 's/\[$TARGETSECTOR\].*/\[$TARGETSECTOR\] $(($(date +%s) + 86400))/g' $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt"
+					as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
+				else
+#					If the cooldown time is less than now, then spawn
+					if [ ${SECTORDATA[1]} -le $(date +%s) ]
+					then
+#						Picks a random line from the sector teirs spawning file (each line is a sector spawn pattern)
+						SECTORSPAWN=($(shuf -n 1 $HARDCOREFILES/LevelSpawns${LEVELDATA[0]}.txt))
+#						Sets the internal sector positions to 1 so the first spawn in the list is in the exact center
+						INTERNALX=0
+						INTERNALY=0
+						INTERNALZ=0
+#						Loops over the number of entities spawned for that sector
+						for SPAWN in ${SECTORSPAWN[@]}
+						do
+#							Creates an entity UUID used for despawning it later
+							ENTITYUUID=ENTITY_HARDCORE_${SPAWN}_$(($(date +%s) + 86400))_$RANDOM
+#							Adds the entity UUID to a log file, for despawning later
+							echo $ENTITYUUID >> $HARDCOREFILES/CurrentSpawns.log
+#							Spawns the entity into the target sector at the specified position
+							as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity_pos $SPAWN $ENTITYUUID $(echo $TARGETSECTOR | tr "," " ") $INTERNALX $INTERNALY $INTERNALZ 0 False\n'"
+#							the internal coords are randomized to between -163 and +163 on each axis
+							INTERNALX=$(($RANDOM/100))
+							INTERNALY=$(($RANDOM/100))
+							INTERNALZ=$(($RANDOM/100))
+						done
+#						Sets the cooldown for 24hours
+						as_user "sed -i 's/\[$TARGETSECTOR\].*/\[$TARGETSECTOR\] $(($(date +%s) + 86400))/g' $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt"
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
+					fi
+				fi
+			fi
+		done
+	done < $HARDCOREFILES/PlayerRadius.txt
+fi
+}
+hardcore_removespawns(){
+if [ "$HARDCORE" = "YES" ]
+then
+	while [ -e /proc/$SM_LOG_PID ]
+	do
+#		Loops over every line in the CurrentSpawns.log file
+		while read SPAWN
+		do
+#			If the entity is more than 24 hours old, then despawn
+			if [ $(echo $SPAWN | cut -d"_" -f4) -le $(date +%s) ]
+			then
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all $SPAWN all false\n'"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all $SPAWN all true\n'"
+				as_user "sed -i '/^$SPAWN/d' $HARDCOREFILES/CurrentSpawns.log"
+			else
+#				If it is not, then break the loop (theyre in age order by default)
+				break
+			fi
+		done < $HARDCOREFILES/CurrentSpawns.log
+		sleep 60
+	done
+fi
+}
+
+#---------------------------Chat Commands---------------------------------------------
+
 #Example Command
 #In the command system, $1 = Playername , $2 = parameter 1 , $3 = parameter 2 , ect
 #e.g if Titansmasher types "!FOLD 9 8 7" then $1 = Titansmasher , $2 = 9 , $3 = 8 , $4 = 7
@@ -2749,7 +3260,7 @@ function COMMAND_MAILALL(){
 }
 
 #Bounty Commands
-function COMMAND_POSTBOUNTY(){
+function COMMAND_POSTBOUNTY(){ 
 #Places a bounty on the player specified, by taking the specified amount of credits from your account.
 #USAGE: !POSTBOUNTY <Player> <Amount>
 if [ "$#" -ne "3" ]
@@ -2757,7 +3268,8 @@ then
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !POSTBOUNTY <player> <amount>\n'"
 else
 #	echo "$1 wants to place a $3 credit bounty on $2"
-	BALANCECREDITS=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2 | tr -d ' ')
+	source $PLAYERFILE/$1
+	BALANCECREDITS=$CreditsInBank
 #	echo "Current bank credits are $BALANCECREDITS"
 	if [ "$1" = "$2" ]
 	then
@@ -2771,7 +3283,8 @@ else
 			then
 				if [ "$3" -le "$BALANCECREDITS" ]
 				then
-					OLDBOUNTY=$(grep Bounty $PLAYERFILE/$2 | cut -d= -f2 | cut -d" " -f1)
+					source $PLAYERFILE/$2
+					OLDBOUNTY=$Bounty
 #					echo "The old bounty is $OLDBOUNTY"
 #					echo "Current bounty found"
 					CURRENTBOUNTY=$(( $OLDBOUNTY + $3 ))
@@ -2779,12 +3292,13 @@ else
 					NEWBALANCE=$(( $BALANCECREDITS - $3 ))
 					if [ "$OLDBOUNTY" -eq "0" ]
 					then
-						as_user "sed -i 's/Bounty=.*/Bounty=$CURRENTBOUNTY $(date +%s)/g' $PLAYERFILE/$2"
-						as_user "sed -i 's/CreditsInBank=$BALANCECREDITS/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
+						as_user "sed -i 's/Bounty=.*/Bounty=$CURRENTBOUNTY/g' $PLAYERFILE/$2"
+						as_user "sed -i 's/BountyPlaced=.*/BountyPlaced=$(date +%s)/g' $PLAYERFILE/$2"
+						as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - You have placed a bounty of $3 on $2\n'"
 					else
-						as_user "sed -i 's/Bounty=$OLDBOUNTY/Bounty=$CURRENTBOUNTY/g' $PLAYERFILE/$2"
-						as_user "sed -i 's/CreditsInBank=$BALANCECREDITS/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
+						as_user "sed -i 's/Bounty=.*/Bounty=$CURRENTBOUNTY/g' $PLAYERFILE/$2"
+						as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - You have placed a bounty of $3 on $2\n'"
 				
 					fi
@@ -2798,72 +3312,33 @@ else
 	fi	
 fi
 }
-function COMMAND_LISTBOUNTY(){
+function COMMAND_LISTBOUNTY(){ 
 #Lists all players with bounties, and how much they are worth
 #USAGE: !LISTBOUNTY
 if [ "$#" -ne "1" ]
-	then
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !LISTBOUNTY\n'"
-	else
-		for PBOUNTY in $PLAYERFILE/*
-		do
-			BOUNTYAMMOUNT=$(grep "Bounty" $BOUNTY | cut -d= -f2 | cut -d" " -f1)
-			if [ "$BOUNTYAMMOUNT" -gt "0" ]
-			then
-			BOUNTYNAME=$(echo $PBOUNTY | rev | cut -d/ -f1 | rev)
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $BOUNTYNAME - $BOUNTYAMMOUNT credits\n'"
-			fi
-		done
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - The current bounties are:\n'"
-	fi
-#PLAYERFILES=( $(find /home/reed/playerfiles -type f | cut -d\/ -f5) )
-#playerfiles -type f | cut -d\/ -f5	
-
-}
-function COMMAND_COLLECTBOUNTY(){
-#Collects the bounty from your recent kill (WIP)
-#USAGE: !COLLECTBOUNTY <Player>
-if [ "$#" -ne "2" ]
 then
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !COLLECTBOUNTY <playername>\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !LISTBOUNTY\n'"
 else
-#	echo "$1 is trying to collect a bounty"
-	BOUNTYAMOUNT=$(grep Bounty $PLAYERFILE/$2 | cut -d= -f2 | cut -d" " -f1)
-	BOUNTYTIME=$(grep Bounty $PLAYERFILE/$2 | cut -d" " -f2)
-#	echo "This is the bounty amount for $2 $BOUNTYAMOUNT"
-	if [ "$BOUNTYAMOUNT" -eq 0 ]
-	then
-#		echo "No bounty"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - No bounty found\n'"
-	else
-#		echo "Bounty Found"
-		LASTPLAYERKILLED=$(grep PlayerLastKilled $PLAYERFILE/$1 | cut -d" " -f2)
-#		echo "This is the player killed $LASTPLAYERKILLED for $1"
-		LASTKILLEDPLAYER=$(grep PlayerKilledBy $PLAYERFILE/$2 | cut -d" " -f2)
-#		echo "$LASTKILLEDPLAYER  is the last player to kill $2"
-		LASTKILLEDTIME=$(grep PlayerKilledBy $PLAYERFILE/$2 | cut -d" " -f3)
-#		echo "This is the time of the last kill $LASTKILLEDTIME"
-		if [ "$LASTPLAYERKILLED" == "None" ] || [ "$LASTKILLEDPLAYER" == "None" ] || [ "$LASTPLAYERKILLED" != "$2" ] || [ "$LASTKILLEDPLAYER" != "$1" ]
+	BOUNTYLIST=( $(ls $PLAYERFILE) )
+#	echo "here is the playefile list ${BOUNTYLIST[@]}"
+	BARRAY=0
+	while [ -n "${BOUNTYLIST[$BARRAY]+set}" ] 
+	do
+		BOUNTYNAME=${BOUNTYLIST[$BARRAY]}
+#		echo "Current playername $BOUNTYNAME"
+		source $PLAYERFILE/$BOUNTYNAME
+#		echo "Current bounty for player $Bounty"
+		BOUNTYTOTAL=0
+		if [ "$Bounty" -gt 0 ]
 		then
-#			echo "No kills"
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - Unable to verify kill\n'"
-		else
-#			echo "Playerkill name matched"
-			if [ "$BOUNTYTIME" -lt "$LASTKILLEDTIME" ]
-			then
-#				echo "Bounty posted before kill"					
-				PLAYERBALANCE=$(grep CreditsInBank $PLAYERFILE/$1 | cut -d= -f2)
-#				echo "This is the player balance $PLAYERBALANCE that is recieving the bounty"
-				NEWBALANCE=$(( $PLAYERBALANCE + $BOUNTYAMOUNT ))
-#				echo "This is the new player balance $NEWBALACE"
-				as_user "sed -i 's/CreditsInBank=.*/CreditsInBank=$NEWBALANCE/g' $PLAYERFILE/$1"
-				as_user "sed -i 's/Bounty=.*/Bounty=0/g' $PLAYERFILE/$2"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - You received $BOUNTYAMOUNT credits in you account from eliminating $2\n'"
-			else
-#				echo "Bounty posted after kill"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 GALACTIC COMMAND - You killed this player before the bounty was posted\n'"
-			fi
-		fi		
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $BOUNTYNAME - $Bounty credits\n'"
+			let BOUNTYTOTAL++
+		fi
+		let BARRAY++
+	done
+	if [ "$BOUNTYTOTAL" -eq "0" ]	
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 No bounties detected\n'"
 	fi
 fi
 }
@@ -2876,37 +3351,38 @@ function COMMAND_FOLD(){
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !FOLD <X> <Y> <Z>\n'"
 	else
-		CONTROLLINGTYPE[$1]=$(grep "PlayerControllingType:" $PLAYERFILE/$1 | cut -d" " -f2)
-		if [[ "${CONTROLLINGTYPE[$1]}" == "Ship" ]]
+		CONTROLLINGTYPE=$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)
+		CONTROLLINGOBJECT=$(grep "PlayerControllingObject=" $PLAYERFILE/$1 | cut -d= -f2)
+		if [[ "${CONTROLLINGTYPE}" == "Ship" ]] && [[ "$(grep -- $CONTROLLINGOBJECT $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
 		then
-			OLDPLAYERLASTFOLD=$(grep PlayerLastFold $PLAYERFILE/$1 | cut -d" " -f2- | tr -d ' ')
+			OLDPLAYERLASTFOLD=$(grep PlayerLastFold $PLAYERFILE/$1 | cut -d= -f2- | tr -d ' ')
 			CURRENTTIME=$(date +%s)
 			ADJUSTEDTIME=$(( $CURRENTTIME - 600 ))
 			if [ "$ADJUSTEDTIME" -gt "$OLDPLAYERLASTFOLD" ]
 			then
-				SECTOR[$1]=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
-				DISTANCE=$(echo "($(echo ${SECTOR[$1]} | cut -d"," -f1)- $2)^2+($(echo ${SECTOR[$1]} | cut -d"," -f2)- $3)^2+($(echo ${SECTOR[$1]} | cut -d"," -f3)- $4)^2" | bc)
+				SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
+				DISTANCE=$(echo "($(echo ${SECTOR} | cut -d"," -f1)- $2)^2+($(echo ${SECTOR} | cut -d"," -f2)- $3)^2+($(echo ${SECTOR} | cut -d"," -f3)- $4)^2" | bc)
 				if [ "$DISTANCE" -le "$FOLDLIMIT" ]
 				then
 					WARMUP=50
-					as_user "sed -i 's/PlayerLastFold: $OLDPLAYERLASTFOLD/PlayerLastFold: $CURRENTTIME/g' $PLAYERFILE/$1"
+					as_user "sed -i 's/PlayerLastFold=$OLDPLAYERLASTFOLD/PlayerLastFold=$CURRENTTIME/g' $PLAYERFILE/$1"
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Engaging fold calculations please allow 60 seconds to engage\n'"
-					while [ "$WARMUP" -ge 0 ] && [[ "$(grep "PlayerControllingType:" $PLAYERFILE/$1 | cut -d" " -f2)" == "Ship" ]]
+					while [ "$WARMUP" -ge 0 ] && [[ "$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)" == "Ship" ]] && [[ "$(grep -- $CONTROLLINGOBJECT $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
 					do
 						sleep 1
 						let WARMUP--
 					done
-					if [[ "$(grep "PlayerControllingType:" $PLAYERFILE/$1 | cut -d" " -f2)" == "Ship" ]]
+					if [[ "$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)" == "Ship" ]] && [[ "$(grep -- $CONTROLLINGOBJECT $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
 					then
 						COUNTDOWN=10
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Engaging fold in...\n'"
-						while [ $COUNTDOWN -ge 0 ] && [[ "$(grep "PlayerControllingType:" $PLAYERFILE/$1 | cut -d" " -f2)" == "Ship" ]]
+						while [ $COUNTDOWN -ge 0 ] && [[ "$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)" == "Ship" ]] && [[ "$(grep -- $CONTROLLINGOBJECT $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
 						do
 							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 $COUNTDOWN ...\n'"
 							sleep 1
 							let COUNTDOWN--
 						done
-						if [[ "$(grep "PlayerControllingType:" $PLAYERFILE/$1 | cut -d" " -f2)" == "Ship" ]]
+						if [[ "$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)" == "Ship" ]] && [[ "$(grep -- $CONTROLLINGOBJECT $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
 						then
 							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Folding Space...\n'"
 							sleep 0.1
@@ -2915,19 +3391,19 @@ function COMMAND_FOLD(){
 							sleep 0.1
 							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Fold Successful! You have emerged in sector $2,$3,$4\n'"
 						else
-							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You exited your ship causing the fold to fail! Your engines need to cool down still before you can jump again!\n'"
+							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your ship entered a state that means it cannot activate its fold drive! Your engines need to cool down still before you can jump again!\n'"
 						fi
 					else
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You exited your ship causing the fold to fail! Your engines need to cool down still before you can jump again!\n'"
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your ship entered a state that means it cannot activate its fold drive! Your engines need to cool down still before you can jump again!\n'"
 					fi
 				else
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your fold engines dont have the power to launch you that far!\n'"
 				fi
 			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please allow your fold drive to cooldown. It will take $((600-($(date +%s)-$(grep "PlayerLastFold:" $PLAYERFILE/$1 | cut -d" " -f2)))) seconds.\n'"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please allow your fold drive to cooldown. It will take $((600-($(date +%s)-$(grep "PlayerLastFold=" $PLAYERFILE/$1 | cut -d= -f2)))) seconds.\n'"
 			fi
 		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please enter a ship to use a fold drive!\n'"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please enter an undocked ship to use a fold drive!\n'"
 		fi
 	fi
 }
@@ -2946,12 +3422,12 @@ function COMMAND_ADDJUMP(){
 		if ! grep -q $2 $GATELOG
 		then
 #			Gets players location and faction
-			SECTOR[$1]=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
-			CONTROLLINGOBJECT[$1]=$(grep "PlayerControllingObject:" $PLAYERFILE/$1 | cut -d" " -f2)
-			CONTROLLINGTYPE[$1]=$(grep "PlayerControllingType:" $PLAYERFILE/$1 | cut -d" " -f2)
+			SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
+			CONTROLLINGOBJECT=$(grep "PlayerControllingObject=" $PLAYERFILE/$1 | cut -d= -f2)
+			CONTROLLINGTYPE=$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)
 			if [[ "$CONTROLLINGTYPE" == "Spacestation" ]]
 			then
-				if ! grep -q ${SECTOR[$1]} $GATELOG
+				if ! grep -q ${SECTOR} $GATELOG
 				then
 #					Checks if player can afford the gate
 					VOTINGPOINTS=$(grep "VotingPoints=" $PLAYERFILE/$1 | cut -d= -f2)
@@ -2961,10 +3437,10 @@ function COMMAND_ADDJUMP(){
 						let "VOTESSAVED=$VOTINGPOINTS-$GATECOST"
 						as_user "sed -i 's/VotingPoints=$VOTINGPOINTS/VotingPoints=$VOTESSAVED/g' $PLAYERFILE/$1"
 #						Add the gate to the gates.log file
-						echo "Name: $2 Sector: ${SECTOR[$1]} Level: 1 Creator: $1 TotalCost: $GATECOST LinkedEntity: ${CONTROLLINGOBJECT[$1]}" >> $GATELOG
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 If someone destroys the station ${CONTROLLINGOBJECT[$1]} the the gate will be destroyed and you will not be refunded\n'"
+						echo "Name: $2 Sector: ${SECTOR[$1]} Level: 1 Creator: $1 TotalCost: $GATECOST LinkedEntity: ${CONTROLLINGOBJECT}" >> $GATELOG
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 If someone destroys the station ${CONTROLLINGOBJECT} the the gate will be destroyed and you will not be refunded\n'"
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You can upgrade the Gate by typing !UPGRADEJUMP <Name of gate>!\n'"
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 It is in sector ${SECTOR[$1]} and belongs to $1!\n'"
+						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 It is in sector ${SECTOR} and belongs to $1!\n'"
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have sucessfully spawned a gate called $2!\n'"
 					else
 						as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You dont have enough voting points to spawn a gate! You need $GATECOST but only have $VOTINGPOINTS\n'"
@@ -3008,12 +3484,13 @@ function COMMAND_JUMP(){
 	else
 		if [[ $(grep "JumpDisabled=" $PLAYERFILE/$1 | cut -d= -f2) -le $(date +%s) ]]
 		then
-			SECTOR[$1]=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
-			CONTROLLINGTYPE[$1]=$(grep "PlayerControllingType:" $PLAYERFILE/$1 | cut -d" " -f2)
-			if [[ "${CONTROLLINGTYPE[$1]}" == "Ship" ]]
+			SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
+			CONTROLLINGTYPE=$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)
+			CONTROLLINGOBJECT=$(grep "PlayerControllingObject=" $PLAYERFILE/$1 | cut -d= -f2)
+			if [[ "$CONTROLLINGTYPE" == "Ship" ]] && [[ "$(grep -- $CONTROLLINGOBJECT $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
 			then
 #				Check if the player is in a jump gate sector (-- tells grep its the end of parameters due to negative sectors confusing it)
-				if grep -q -- "${SECTOR[$1]}" $GATELOG
+				if grep -q -- "$SECTOR" $GATELOG
 				then
 					GATEINFO=($(grep -- "Sector: ${SECTOR[$1]}" $GATELOG))
 					if [ ! -e $GATEWHITELIST/${GATEINFO[7]} ]
@@ -3040,17 +3517,17 @@ function COMMAND_JUMP(){
 								let WARMUP--
 							done
 #							Gets the players sector again, to make sure theyre in the same sector still
-							SECTORA=${SECTOR[$1]}
-							SECTOR[$1]=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
-							CONTROLLINGTYPE[$1]=$(grep "PlayerControllingType:" $PLAYERFILE/$1 | cut -d" " -f2)
-							if [[ "$SECTORA" == "${SECTOR[$1]}" ]] && [[ "${CONTROLLINGTYPE[$1]}" == "Ship" ]]
+							SECTORA=$SECTOR
+							SECTOR=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
+							CONTROLLINGTYPE=$(grep "PlayerControllingType=" $PLAYERFILE/$1 | cut -d= -f2)
+							if [[ "$SECTORA" == "$SECTOR" ]] && [[ "$CONTROLLINGTYPE" == "Ship" ]] && [[ "$(grep -- $CONTROLLINGOBJECT $SHIPLOG | cut -d"<" -f2 | cut -d">" -f1)" == "~none" ]]
 							then
 #								teleports the user to the destination gate
 								as_user "screen -p 0 -S $SCREENID -X stuff $'/change_sector_for $1 $(grep " $2 " $GATELOG | cut -d":" -f3 | cut -d" " -f2 | tr "," " ")\n'"
 								as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have sucessfully jumped to $2!\n'"
 							else
 #								user moved, so teleport doesnt happen
-								as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You went outside the range of the gate or exited your ship! Your jump failed\n'"
+								as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You went outside the range of the gate or your ship entered an un-jumpable state! Your jump failed\n'"
 							fi
 						else
 							as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 There is no gate by that name! (Jump gates are case sensitive)\n'"
@@ -3062,14 +3539,14 @@ function COMMAND_JUMP(){
 					as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 There is no jump gate where you are. Use !JUMPLIST to get all the jump gates available\n'"
 				fi
 			else
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You cannot jump unless you are in a ship!\n'"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You cannot jump unless you are in an undocked ship!\n'"
 			fi
 		else
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Your ships engines are still cooling down from your last jump. They will take roughly $(($(grep "JumpDisabled=" $PLAYERFILE/$1 | cut -d= -f2)-$(date +%s))) seconds\n'"
 		fi
 	fi
 }
-function COMMAND_UPGRADEJUMP(){ #Look at let statements with cutting of " " for compatability with new = format
+function COMMAND_UPGRADEJUMP(){
 #Increases the teir of the specified jump gate by 1 at the cost of voting points. This reduces warm up and cooldown time.
 #USAGE: !UPGRADEJUMP <JumpName>
 	if [ "$#" -ne "2" ]
@@ -3079,7 +3556,6 @@ function COMMAND_UPGRADEJUMP(){ #Look at let statements with cutting of " " for 
 #		Checks if the gate exists		
 		if grep -q -- $2 $GATELOG
 		then
-			SECTOR[$1]=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
 			GATEINFO=($(grep -- " $2 " $GATELOG))
 #			Checks if the player has faction permission to upgrade the gate, or if the gate is faction All, check if theyre the creator of it	
 			if [[ "${GATEINFO[7]}" == "$1" ]]
@@ -3125,7 +3601,6 @@ function COMMAND_DESTROYJUMP(){
 #		Checks if the gate exists
 		if grep -q -- $2 $GATELOG
 		then
-			SECTOR[$1]=$(grep "PlayerLocation=" $PLAYERFILE/$1 | cut -d= -f2)
 			GATEINFO=($(grep -- " $2 " $GATELOG))
 #			Checks if the player owns the gate
 			if [[ "${GATEINFO[7]}" == "$1" ]]
@@ -3220,7 +3695,7 @@ function COMMAND_DEPOSIT(){
 # Check the playerfile to see if it was updated recently by comparing it to the current time
 			CURRENTTIME=$(date +%s)
 #			echo "Current time $CURRENTTIME"
-			OLDTIME=$(grep PlayerLastUpdate $PLAYERFILE/$1 | cut -d" " -f2- |  tr -d ' ')
+			OLDTIME=$(grep PlayerLastUpdate $PLAYERFILE/$1 | cut -d= -f2- |  tr -d ' ')
 #			echo "Old time from playerfile $OLDTIME"
 			ADJUSTEDTIME=$(( $CURRENTTIME - 10 ))
 #			echo "Adjusted time to remove 10 seconds $ADJUSTEDTIME"
@@ -3356,7 +3831,7 @@ function COMMAND_FDEPOSIT(){
 				create_factionfile $FACTION
 				CURRENTTIME=$(date +%s)
 #				echo "Current time $CURRENTTIME"
-				OLDTIME=$(grep PlayerLastUpdate $PLAYERFILE/$1 | cut -d" " -f2- |  tr -d ' ')
+				OLDTIME=$(grep PlayerLastUpdate $PLAYERFILE/$1 | cut -d= -f2- |  tr -d ' ')
 #				echo "Old time from playerfile $OLDTIME"
 				ADJUSTEDTIME=$(( $CURRENTTIME - 10 ))
 #				echo "Adjusted time to remove 10 seconds $ADJUSTEDTIME"
@@ -3638,14 +4113,14 @@ function COMMAND_VOTEBALANCE(){
 }
 
 #Utility Commands
-function COMMAND_HELP(){
+function COMMAND_HELP(){ 
 #Provides help on any and all functions available to the player
 #USAGE: !HELP <Command (optional)>
 	if [ "$#" -gt "2" ]
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !HELP <Command (Optional)>\n'"
 	else		
-		PLAYERRANK[$1]=$(grep "Rank:" $PLAYERFILE/$1 | cut -d\[ -f2 | cut -d\] -f1 )
+		PLAYERRANK[$1]=$(grep "Rank=" $PLAYERFILE/$1 | cut -d= -f2)
 		ALLOWEDCOMMANDS[$1]=$(grep $PLAYERRANK $RANKCOMMANDS)
 		HELPCOMMAND=$(echo $2 | tr [a-z] [A-Z])
 		if [ "$#" -eq "1" ]
@@ -3695,16 +4170,16 @@ function COMMAND_CORE(){
 	then
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !CORE\n'"
 	else	
-		OLDPLAYERLASTCORE=$(grep PlayerLastCore $PLAYERFILE/$1 | cut -d" " -f2- | tr -d ' ')
+		OLDPLAYERLASTCORE=$(grep PlayerLastCore $PLAYERFILE/$1 | cut -d= -f2- | tr -d ' ')
 		CURRENTTIME=$(date +%s)
 		ADJUSTEDTIME=$(( $CURRENTTIME - 600 ))
 		if [ "$ADJUSTEDTIME" -gt "$OLDPLAYERLASTCORE" ]
 		then
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 1 1\n'"
-			as_user "sed -i 's/PlayerLastCore: $OLDPLAYERLASTCORE/PlayerLastCore: $CURRENTTIME/g' $PLAYERFILE/$1"
+			as_user "sed -i 's/PlayerLastCore=$OLDPLAYERLASTCORE/PlayerLastCore=$CURRENTTIME/g' $PLAYERFILE/$1"
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 You have received one core. There is a 10 minute cooldown before you can use it again\n'"
 		else
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please allow Core command to cooldown. $((600-($(date +%s)-$(grep "PlayerLastCore:" $PLAYERFILE/$1 | cut -d" " -f2)))) seconds left\n'"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Please allow Core command to cooldown. $((600-($(date +%s)-$(grep "PlayerLastCore=" $PLAYERFILE/$1 | cut -d= -f2)))) seconds left\n'"
 		fi
 	fi
 }
@@ -3935,7 +4410,7 @@ function COMMAND_GIVESET() {
 #USAGE: !GIVESET <Set name> <Set type (only used for normal or hard hull)> - Set names are grey, white, black, red, blue, yellow, green, brown, purple, glass, light, weapon, internal, decoration, terrain, plants
 if [ "$#" -ne "2" ] && [ "$#" -ne "3" ]
 then
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !GIVESET <Set name> <Set type (only used for normal or hard hull)> - Set names are grey, white, black, red, blue, yellow, green, brown, purple, glass, light, weapon, internal, decoration, terrain, plants\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use !GIVESET <Set name> <Set type (only used for normal or hard hull)> - Set names are grey, white, black, red, blue, yellow, green, brown, purple, orange, glass, light, logic, weapon, internal, crystal, decoration, terrain, plants\n'"
 else
 	case "$2" in
 	*"glass"*) 
@@ -3945,6 +4420,18 @@ else
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 368 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 367 10000\n'"
 	;;
+	*"crystal"*) 
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 452 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 453 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 454 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 455 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 456 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 457 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 458 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 459 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 444 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 286 10000\n'"
+	;;
 	*"light"*) 
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 65 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 62 10000\n'"
@@ -3952,6 +4439,17 @@ else
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 283 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 284 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 285 10000\n'"
+	;;
+	*"logic"*) 
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 405 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 406 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 407 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 408 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 409 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 410 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 411 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 412 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 413 10000\n'"
 	;;
 	*"weapon"*)
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 6 10000\n'"
@@ -3962,10 +4460,6 @@ else
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 30 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 38 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 32 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 46 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 40 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 54 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 48 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 344 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 345 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 14 10000\n'"
@@ -3973,37 +4467,60 @@ else
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 335 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 332 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 333 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 414 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 415 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 416 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 417 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 418 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 419 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 420 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 421 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 422 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 423 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 424 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 425 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 460 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 461 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 462 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 463 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 464 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 465 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 466 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 467 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 344 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 345 10000\n'"	
 	;;
 	*"terrain"*) 
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 64 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 80 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 73 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 74 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 87 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 285 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 138 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 141 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 91 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 107 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 82 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 83 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 139 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 140 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 141 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 73 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 74 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 82 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 83 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 86 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 274 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 87 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 90 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 91 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 93 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 95 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 107 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 275 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 278 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 279 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 270 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 286 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 280 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 281 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 274 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 275 10000\n'"
 	;;
 	*"plant"*) 
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 84 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 85 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 89 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 90 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 91 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 92 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 93 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 95 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 96 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 97 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 98 10000\n'"
@@ -4016,15 +4533,11 @@ else
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 105 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 106 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 108 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 109 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 84 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 85 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 276 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 277 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 280 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 281 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 287 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 288 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 109 10000\n'"
 	;;
 	*"decoration"*) 
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 340 10000\n'"
@@ -4034,29 +4547,46 @@ else
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 339 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 272 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 273 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 254 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 445 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 446 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 447 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 448 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 449 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 450 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 451 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 436 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 437 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 438 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 439 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 440 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 441 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 442 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 443 10000\n'"
 	;;
 	*"internal"*) 
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 1 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 2 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 3 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 8 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 331 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 289 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 290 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 7 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 88 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 15 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 22 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 56 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 47 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 120 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 121 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 122 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 2 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 123 10000\n'"	
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 94 10000\n'"	
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 113 10000\n'"	
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 291 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 292 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 331 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 346 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 101 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 1 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 22 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 15 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 8 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 3 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 47 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 121 10000\n'"
-	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 94 10000\n'"
+	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 347 10000\n'"
 	as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 347 10000\n'"
 	;;
 	*"grey"*) 
@@ -4207,6 +4737,25 @@ else
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 323 10000\n'"
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 379 10000\n'"
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 371 10000\n'"
+	else
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use normal or hard for example GIVESET <color of hull> <normal or hard>\n'"
+	fi
+	;;
+		*"orange"*) 
+	if [ "$3" = "normal" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 426 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 427 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 428 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 429 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 430 10000\n'"
+	elif [ "$3" = "hard" ]
+	then
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 431 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 432 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 433 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 434 10000\n'"
+		as_user "screen -p 0 -S $SCREENID -X stuff $'/giveid $1 435 10000\n'"
 	else
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 Invalid parameters. Please use normal or hard for example GIVESET <color of hull> <normal or hard>\n'"
 	fi
@@ -4432,8 +4981,8 @@ function COMMAND_ADMINCOOLDOWN(){
 		if ! grep -q $3 $PLAYERFILE/$2
 		then
 			as_user "sed -i 's/JumpDisabled=.*/JumpDisabled=0/g' $PLAYERFILE/$2"
-			as_user "sed -i 's/PlayerLastCore: .*/PlayerLastCore: 0/g' $PLAYERFILE/$2"
-			as_user "sed -i 's/PlayerLastFold: .*/PlayerLastFold: 0/g' $PLAYERFILE/$2"
+			as_user "sed -i 's/PlayerLastCore=.*/PlayerLastCore=0/g' $PLAYERFILE/$2"
+			as_user "sed -i 's/PlayerLastFold=.*/PlayerLastFold=0/g' $PLAYERFILE/$2"
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 All cooldowns set to 0 for $2\n'"
 		else
 			as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $1 That player does not exist. Please try again\n'"
@@ -4549,8 +5098,8 @@ ban)
 dump)
 	sm_dump $@
 	;;
-uptest)
-	update_file $@
+box)
+	sm_box $@
 	;;
 help)
 	sm_help
@@ -4583,9 +5132,16 @@ upgradestar)
 updatefiles)
 	update_daemon
 	;;
+debug) 
+	echo ${@:2}
+	parselog ${@:2}
+	;;
+hardcore)
+	smgm_hardcore ${@:2}
+	;;
 *)
 echo "Doomsider's and Titanmasher's Starmade Daemon (DSD) V.17"
-echo "Usage: starmaded.sh {help|updatefiles|start|stop|ebrake|install|reinstall|restore|status|destroy|restart|upgrade|upgradestar|smdo|smsay|cronstop|cronbackup|cronrestore|backup|backupstar|setplayermax|detect|log|screenlog|check|precheck|ban|dump}"
+echo "Usage: starmaded.sh {help|updatefiles|start|stop|ebrake|install|reinstall|restore|status|destroy|restart|upgrade|upgradestar|smdo|smsay|cronstop|cronbackup|cronrestore|backup|backupstar|setplayermax|detect|log|screenlog|check|precheck|ban|dump|box}"
 #******************************************************************************
 exit 1
 ;;
@@ -4593,4 +5149,3 @@ esac
 exit 0
 # Notes:  When executing smdo and smsay enclose in "" and escape any special characters
 # All chat commands require a ! in front of them and the commands are always in caps
-
