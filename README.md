@@ -1,46 +1,30 @@
 DTSD_Development
 ================
 
-The next development cycle for DTSD .17
+The next development cycle for DTSD .18
 
 Goals:
-Find bugs
-Implement new features
-Code review for readability, continuity, logic, and speed
-
+Create a queue system for functions in logging
+Create new file system to store all entities into single files (ie A player file that contains all players)
+Create a script/function that can be ran to change server.cfg, block files, daemon.cfg, etc for specific server configurations (ie Hardcore or Balanced Server mod)
+Create a functional way to control/overwrite how a universe spawns
+Create a scripting system for sectors that will allow for scripted events and commands to be executed when a player enters a new sector
+Create a career system for players.  Different careers confer different abilities and they get.
+better abilities as the career advances
+Update Daemon functions to make use of the new file system
 
 Some ideas feel free to add:
 
-Add ability to claim and name sectors with player owned bases.  Give residual income or some other perks.
-
-Add sector events like random encounters, missions, and boss fights.  Perhaps look to replace the existing enemy AI altogther for now
-
-Add a faction bank account
+Add ability to turn off random ingame tips
 
 Add ability to gather statistics for the server such as players on, size of directory, memory usage, player info, etc 
   to be used for access by other web applications or as a status display for a screen.
 
-Add a management panel option with the use of tmux to offer a display of the current log, chat, statistics/status of server
-  and allow player to interact with the server with hotkeys
-  
-<<<<<<< HEAD
+Add a web management panel
+
 Add a mass export option to export all sectors with ships, stations, and planets for backup and restoration
 
-=======
-Add random ingame tips
-
-Add an online log
->>>>>>> f85f49735f938d9c17046ad4b485488426793c5e
+Add a mission system and a career tally system (total pirate kills, total player kills, total ships created, etc) for careers so they can advance
 
 
-New commands/functions working on:
-Added in vote to credits conversion
-Added a method to update all playerfiles with any new data
-Added random ingame messages every 10 minutes
-Added an online log listing all online players
-Updated login methods, to be more logical and less 'hacky'
-
-
-Bug list goes here:
-Shipbuy missing echo - Fixed  
 
