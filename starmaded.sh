@@ -1,7 +1,7 @@
 #!/bin/bash
 # Doomsider's and Titanmasher's Daemon Script for Starmade.  init.d script 7/10/13 based off of http://paste.boredomsoft.org/main.php/view/62107887
 # All credits to Andrew for his initial work
-# Version .18 Pre
+# Version .17 6/8/2014
 # Jstack for a dump has been added into the ebrake command to be used with the detect command to see if server is responsive.
 # These dumps will be in starterpath/logs/threaddump.log and can be submitted to Schema to troubleshoot server crashes
 # !!!You must update starmade.cfg for the Daemon to work on your setup!!!
@@ -119,9 +119,10 @@ else
     if ps aux | grep -v grep | grep $SCREENLOG >/dev/null
     then
 		echo "Screenlog detected terminating"
-		PID=$(ps aux | grep -v grep | grep $SCREENLOG | awk '{print $2}')    
-		kill $PID
-    fi
+#		PID=$(ps aux | grep -v grep | grep $SCREENLOG | awk '{print $2}')    
+#		kill $PID
+		as_user "screen -S $SCREENLOG -X quit"
+	fi
 # Check for the output.log and if it is there move it and save it with a time stamp
     if [ -e $STARTERPATH/logs/output.log ] 
     then
@@ -172,6 +173,7 @@ then
 			sleep 1
 		else
 			echo $SERVICE took $LOOPNO seconds to close
+			as_user "screen -S $SCREENLOG -X quit"
 			break
 		fi
 	done
@@ -187,6 +189,7 @@ then
 				sleep 1
 			else
 				echo $SERVICE took $(($LOOPNO + 30)) seconds to close, and had to be force shut down
+				as_user "screen -S $SCREENLOG -X quit"
 				break
 			fi
 		done
@@ -195,6 +198,7 @@ then
 			PID=$(ps aux | grep -v grep | grep $SERVICE | grep -v tee | grep port:$PORT | awk '{print $2}')
 			kill -9 $PID
 # This was added in to troubleshoot freezes at the request of Schema			
+			as_user "screen -S $SCREENLOG -X quit"
 			screen -wipe
 			$SERVICE took too long to close. $SERVICE had to be killed
 		fi
@@ -230,6 +234,67 @@ then
 else
 	echo "Please install Zip"
 	fi 
+fi
+}
+sm_livebackup() {
+# WARNING! Live Backup make only a Backup of the Database! Because, some other dirs and files are in use
+if ps aux | grep $SERVICE | grep -v grep | grep -v tee | grep port:$PORT >/dev/null
+then
+# Check to see if zip is installed, it isn't on most minimal server builds.
+	if command -v zip >/dev/null
+	then
+		if [ -d "$BACKUP" ]
+		then
+			cd $STARTERPATH
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/chat Starting live-backup\n'"
+			echo "Starting live-backup"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
+			sleep 10
+# /delay_save prevents saving of the Server
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 3600\n'"
+			sleep 5
+# Create a zip of starmade with time stamp and put it in backup
+			as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade/server-database"
+			if [ "$?" == "0" ]
+			then
+				as_user "mv $BACKUPNAME*.zip $BACKUP"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup complete and successfull\n'"
+				echo "live-backup complete and successfull"
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup exited with error. Please contact the admins.\n'"
+				echo "live-backup exited with error. Please check"
+			fi
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 1\n'"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
+		else
+			echo "Directory not found attempting to create"
+			cd $STARTERPATH
+			as_user "mkdir $BACKUP"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/chat Starting live-backup\n'"
+			echo "Starting live-backup"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
+			sleep 10
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 3600\n'"
+			sleep 5
+			as_user "zip -r $BACKUPNAME$(date '+%b_%d_%Y_%H.%M.%S').zip StarMade/server-database"
+			if [ "$?" == "0" ]
+			then
+				as_user "mv $BACKUPNAME*.zip $BACKUP"
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup complete and successfull\n'"
+				echo "live-backup complete and successfull"
+			else
+				as_user "screen -p 0 -S $SCREENID -X stuff $'/chat live-backup exited with error. Please contact the admins.\n'"
+				echo "live-backup exited with error. Please check"
+			fi
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/delay_save 1\n'"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
+		fi
+	else
+		echo "Please install Zip"
+	fi
+else
+	echo "$SERVICE isn't running, make a regular backup"
+	sm_backup
 fi
 }
 sm_destroy() {
@@ -381,6 +446,7 @@ then
 			sleep 1
 		else
 			echo $SERVICE closed after $LOOPNO seconds
+			as_user "screen -S $SCREENLOG -X quit"
 			break
 		fi
 	done
@@ -392,6 +458,7 @@ then
 		jstack $PID >> $STARTERPATH/logs/threaddump.log  
 		kill -9 $PID
 		echo $SERVICE has to be forcibly closed. A thread dump has been taken and is saved at $STARTERPATH/logs/threaddump.log and should be sent to schema.
+		as_user "screen -S $SCREENLOG -X quit"
 		screen -wipe
 	fi
 else
@@ -613,10 +680,7 @@ autovoteretrieval &
 randomhelptips &
 sectorincome &
 sectorfees &
-hardcore_removeobjects &
-hardcore_removespawns &
 create_rankscommands
-source $HARDCORECONFIG
 # Create the Gate whitelist file if it doesnt exist
 	mkdir -p $GATEWHITELIST
 # Create the playerfile folder if it doesnt exist
@@ -856,49 +920,6 @@ else
 	esac
 fi
 }
-smgm_hardcore(){ #Havent had the time to add this into the current config method
-#Creates the config file if it doesnt exist
-if [ ! -e $HARDCORECONFIG ]
-then
-	CREATEHARDCORE="cat > $HARDCORECONFIG <<_EOF_
-#LEVEL[levelofspawns]=\"nameOfLevel levelOuterDistance levelInnerDistance %ofLevelsThatAreSpawningSectors\"
-#e.g. LEVEL[0]=\"0 15 5 25\" means that level 0 will have sectors marked from -15,-15,-15 to 15,15,15 apart from -5,-5,-5 to 5,5,5 , but only 25% of these sectors will be marked as spawning
-#WARNING the larger the area, the longer the list takes to generate and the more laggy the server will be.
-LEVEL[0]=\"0 15 5 25\" #Roughly 7115 sectors
-LEVEL[1]=\"1 25 15 20\" #Roughly 20572 sectors
-LEVEL[2]=\"2 35 25 15\" #Roughly 33789 sectors
-LEVEL[3]=\"3 45 35 10\" #Roughly 39566 sectors
-#The radius around the player that spawns in the specified sectors (same method as above)
-PLAYERRADIUS=\"PlayerRadius 1 0 100\" #All sectors in a 3x3x3 hollow cube centered on the player are spawned
-_EOF_"
-as_user "$CREATEHARDCORE"
-	echo "Hardcore config has been created. Please edit it to suit your needs."
-else
-	if [ ! -d $HARDCOREFILES ]
-	then
-		as_user "mkdir $HARDCOREFILES"
-	fi
-	source $HARDCORECONFIG
-#	Calls generate_sectorlist for all the sectors defined and for the player
-	for LEVELNO in ${!LEVEL[@]}
-	do
-		LEVELDATA=${LEVEL[$LEVELNO]}
-		if [ ! -e $HARDCOREFILES/LevelData$(echo $LEVELDATA | cut -d" " -f1).txt ]
-		then
-			generate_sectorlist LevelData$(echo $LEVELDATA | cut -d" " -f1) $(echo $LEVELDATA | cut -d" " -f2) $(echo $LEVELDATA | cut -d" " -f3) $(echo $LEVELDATA | cut -d" " -f4)
-		fi
-		if [ ! -e $HARDCOREFILES/LevelSpawns$(echo $LEVELDATA | cut -d" " -f1).txt ]
-		then
-			as_user "touch $HARDCOREFILES/LevelSpawns$(echo $LEVELDATA | cut -d" " -f1).txt"
-		fi
-	done
-	if [ ! -e $HARDCOREFILES/PlayerRadius.txt ]
-	then
-		generate_sectorlist PlayerRadius $(echo $PLAYERRADIUS | cut -d" " -f2) $(echo $PLAYERRADIUS | cut -d" " -f3) $(echo $PLAYERRADIUS | cut -d" " -f4)
-	fi	
-fi
-}
-
 #------------------------------Core logging functions-----------------------------------------
 
 log_playerinfo() { 
@@ -1150,7 +1171,7 @@ else
 fi
 }
 log_admincommand() { 
-if [[ ! $@ == *org.schema.schine.network.server.AdminLocalClient* ]] && [[ ! $@ =~ "no slot free for" ]] && [[ ! $@ =~ "SERVER-LOCAL-ADMIN" ]]
+if [[ ! $@ == *org.schema.schine.network.server.AdminLocalClient* ]] && [[ ! $@ =~ "no slot free for" ]]
 then
 	# Format the admin command string to be written to the admin log
 	ADMINSTR="$@ $(date '+%b_%d_%Y_%H.%M.%S')"
@@ -1390,7 +1411,6 @@ then
 		as_user "sed -i 's/PlayerLocation=$PLOLDSCCHANGE/PlayerLocation=$PLAYERSCSOLOCHANGE/g' $PLAYERFILE/$PLAYERSCSOLO"
 		universeboarder $PLAYERSCSOLOCHANGE $PLAYERSCSOLO
 		customspawns $PLAYERSCSOLOCHANGE $PLAYERSCSOLO &
-		hardcore_spawns $PLAYERSCSOLOCHANGE $PLAYERSCSOLO &
 	#----------------------------SHIP---------------------------------------------
 	# If there is a sector change with a ship
 	elif (echo "$SCCHNGTR" | grep Ship >/dev/null)
@@ -1423,7 +1443,6 @@ then
 		fi
 		universeboarder $PLAYERSCSHIPCHANGE $PLAYERSCSHIP
 		customspawns $PLAYERSCSHIPCHANGE $PLAYERSCSHIP &
-		hardcore_spawns $PLAYERSCSHIPCHANGE $PLAYERSCSHIP &
 	#----------------------------STATION---------------------------------------------
 	# If there is a sector change with a station
 	elif (echo "$SCCHNGTR" | grep SpaceStation >/dev/null)
@@ -1456,7 +1475,6 @@ then
 		fi
 		universeboarder $PLAYERSCSTATIONCHANGE $PLAYERSCSTATION
 		customspawns $PLAYERSCSTATIONCHANGE $PLAYERSCSTATION &
-		hardcore_spawns $PLAYERSCSTATIONCHANGE $PLAYERSCSTATION &
 	#----------------------------PLANET---------------------------------------------
 	# If there is a sector change with a planet
 	elif (echo "$SCCHNGTR" | grep Planet >/dev/null)
@@ -1489,7 +1507,6 @@ then
 		fi
 		universeboarder $PLAYERSCPLANETCHANGE $PLAYERSCPLANET
 		customspawns $PLAYERSCPLANETCHANGE $PLAYERSCPLANET &
-		hardcore_spawns $PLAYERSCPLANETCHANGE $PLAYERSCPLANET &
 	fi
 fi
 }
@@ -1990,10 +2007,7 @@ then
 #			Picks a random ship BP to spawn
 			SPAWNSHIP=$(($RANDOM % ${#PIRATENAMES[@]}))
 #			$(date +%s)$RANDOM gives each ship a unique name
-			INTERNALX=$(($RANDOM/100 - 163))
-			INTERNALY=$(($RANDOM/100 - 163))
-			INTERNALZ=$(($RANDOM/100 - 163))
-			as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity_pos ${PIRATENAMES[$SPAWNSHIP]} MOB_CUSTOM_PIRATE_$(date +%s)$RANDOM $(echo $1 | tr "," " ") $INTERNALX $INTERNALY $INTERNALZ -1 True\n'"
+			as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity ${PIRATENAMES[$SPAWNSHIP]} MOB_CUSTOM_PIRATE_$(date +%s)$RANDOM $(echo $1 | tr "," " ") -1 True\n'"
 			sleep 0.1
 		done
 		as_user "screen -p 0 -S $SCREENID -X stuff $'/pm $2 $NUMOFSPAWNS pirates have locked onto you and warped in!\n'"
@@ -2188,8 +2202,6 @@ FACTIONFILE=$STARTERPATH/factionfiles #The folder that contains individual facti
 BARREDWORDS=$STARTERPATH/logs/barredwords.log #The file that contains all blocked words (for use with SwearPrevention)
 SECTORFILE=$STARTERPATH/logs/sectordata.log #The file that contains a list of all owned sectors, and their stats
 PROTECTEDSECTORS=$STARTERPATH/logs/protected.log #Contains a list of all protected sectors (only works with custom spawning)
-HARDCORECONFIG=$STARTERPATH/starmadedhardcore.cfg #Contains all settings for the hardcore server
-HARDCOREFILES=$STARTERPATH/hardcore #Contains all hardcore related files
 #-------------------------Chat Settings-------------------------------------------------------------------
 SPAMPREVENTION=Yes # Turns on or off the SpamPrevention system (Yes/No)
 SPAMLIMIT=5 # The number of messages that can be sent within the $SPAMTIMER before a player will be warned
@@ -2219,7 +2231,6 @@ BASEINCOME=500000 #The base amount of income from a sector per day (0 boardering
 BEACONCREDITLIMIT=10000000 #The limit of credits each beacon can store
 SECTORREFUND=90 #The percentage of credits back from selling a sector
 #------------------------Game settings----------------------------------------------------------------------------
-HARDCORE=NO
 GATECOST=50 #Number of voting points needed to spawn a gate
 #Gate level stats. GATETEIR[LEVEL]equals\"vote-cost warm-up-time cool-down-time\" Can be expanded following the same format infinitely
 GATETEIR[1]=\"0 15 180\"
@@ -2413,7 +2424,6 @@ do
 	let OLDARRAY++
 	done
 #	echo "Here is the writestring $WRITESTRING"	
-#	echo "$WRITESTRING"
 	as_user "cat <<EOF >> $PATHUPDATEFILE
 $WRITESTRING
 EOF"
@@ -2444,207 +2454,6 @@ done
 CURRENTHASH=$(md5sum $DAEMONPATH |  cut -d" " -f1 | tr -d ' ')
 # Update the HASH
 as_user "sed -i 's/HASH=.*/HASH=$CURRENTHASH/g' $CONFIGPATH"
-}
-
-#---------------------------Hardcore functions----------------------------------------
-
-generate_sectorlist(){
-	VALIDRANGE=()
-#	Gets all numbers between the positive and negative values given
-	RANGEINCLUDE=$(eval echo {-${2}..${2}})
-#	Gets all numbers between the positive and negative values given
-	RANGEEXCLUDE=$(eval echo {-${3}..${3}})
-#	Gets the percentage of all sectors that will be marked as spawnable
-	RANGEPERCENT=${4}
-#	Gets the file to which the sectors will be written
-	WRITEFILE=$HARDCOREFILES/${1}.txt
-#	Makes sure any sectors marked as not included are left out
-	for COORD in ${RANGEINCLUDE[@]}
-	do	
-		if [[ ! $RANGEEXCLUDE =~ $COORD ]]
-		then
-			VALIDRANGE+=($COORD)
-		fi
-	done
-	TOTALSECTORS=$(())
-#	Loops over the majourity of the sectors to be made (the entire +-X face on both sides up untill the first exclusion sector)
-	for XCOORD in ${VALIDRANGE[@]}
-	do
-		for YCOORD in ${RANGEINCLUDE[@]}
-		do
-			for ZCOORD in ${RANGEINCLUDE[@]}
-			do
-				if [ $(($RANDOM % 100)) -le $RANGEPERCENT ]
-				then
-					as_user "echo [$XCOORD,$YCOORD,$ZCOORD] >> $WRITEFILE"
-					echo -ne "Working... Added sector $XCOORD,$YCOORD,$ZCOORD   	to $1\r"
-				fi
-			done
-		done
-	done
-#	Loops over the next portion (All remaining sectors on the +-Z faces untill the first exclusion sector)
-	for ZCOORD in ${VALIDRANGE[@]}
-	do
-		for YCOORD in ${RANGEINCLUDE[@]}
-		do
-			for XCOORD in ${RANGEINCLUDE[@]}
-			do
-				if [[ ! ${VALIDRANGE[@]} =~ $XCOORD ]]
-				then
-					if [ $(($RANDOM % 100)) -le $RANGEPERCENT ]
-					then
-						as_user "echo [$XCOORD,$YCOORD,$ZCOORD] >> $WRITEFILE"
-						echo -ne "Working... Added sector $XCOORD,$YCOORD,$ZCOORD   	to $1\r"
-					fi
-				fi
-			done
-		done
-	done
-#	Loops over the last portion (All remaining sectors on the +-Y faces untill the first exclusion point)
-	for YCOORD in ${VALIDRANGE[@]}
-	do
-		for ZCOORD in ${RANGEINCLUDE[@]}
-		do
-			if [[ ! ${VALIDRANGE[@]} =~ $ZCOORD ]]
-			then
-				for XCOORD in ${RANGEINCLUDE[@]}
-				do
-					if [[ ! ${VALIDRANGE[@]} =~ $XCOORD ]]
-					then
-						if [ $(($RANDOM % 100)) -le $RANGEPERCENT ]
-						then
-							as_user "echo [$XCOORD,$YCOORD,$ZCOORD] >> $WRITEFILE"
-							echo -ne "Working... Added sector $XCOORD,$YCOORD,$ZCOORD   	to $1\r"
-						fi
-					fi
-				done
-			fi
-		done
-	done
-	echo -ne "All sectors have been sucessfully generated for $1\n"
-}
-hardcore_removeobjects(){
-if [ "$HARDCORE" = "YES" ]
-then
-	while [ -e /proc/$SM_LOG_PID ]
-	do
-	#	Removes all abandoned stations
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all 13 all false\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all 14 all false\n'"
-	#	Removes all pirate stations
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all P13 all false\n'"
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all P14 all false\n'"
-	#	Removes all turrets attached to pirate bases
-		as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all AITURRENT_ all true\n'"
-		sleep 10
-	done
-fi
-
-}
-hardcore_spawns(){
-if [ "$HARDCORE" = "YES" ]
-then
-	while read SECTOROFFSET
-	do
-#		This first section gets all sectors relative to the player, and checks each one
-		OFFSETX=$(echo $SECTOROFFSET | cut -d"," -f1 | tr -d "[")
-		OFFSETY=$(echo $SECTOROFFSET | cut -d"," -f2)
-		OFFSETZ=$(echo $SECTOROFFSET | cut -d"," -f3 | tr -d "]")
-		PLAYERX=$(echo $1 | cut -d"," -f1 | tr -d "[")
-		PLAYERY=$(echo $1 | cut -d"," -f2)
-		PLAYERZ=$(echo $1 | cut -d"," -f3 | tr -d "]")
-		TARGETSECTOR="$(($PLAYERX + $OFFSETX)),$(($PLAYERY + $OFFSETY)),$(($PLAYERZ + $OFFSETZ))"
-#		Checks in every sector list file for the target sector
-		for LEVELNO in ${!LEVEL[@]}
-		do
-			LEVELDATA=(${LEVEL[$LEVELNO]})
-#			Performs the same task as grep -q -- "\[$TARGETSECTOR\]" $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt) but is faster
-			if [[ $(cat $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt) =~ "[$TARGETSECTOR]" ]]
-			then
-#				If the sector is in the current sector list, then get the sectors data (sector number and cooldown)
-				SECTORDATA=($(grep "\[$TARGETSECTOR\]" $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt))
-#				If it has no cooldown (never been visited before) then start spawning
-				if [ ${#SECTORDATA[@]} -eq 1 ]
-				then
-#					Picks a random line from the sector teirs spawning file (each line is a sector spawn pattern)
-					SECTORSPAWN=($(shuf -n 1 $HARDCOREFILES/LevelSpawns${LEVELDATA[0]}.txt))
-#					Sets the internal sector positions to 1 so the first spawn in the list is in the exact center
-					INTERNALX=0
-					INTERNALY=0
-					INTERNALZ=0
-#					Loops over the number of entities spawned for that sector
-					for SPAWN in ${SECTORSPAWN[@]}
-					do
-#						Creates an entity UUID used for despawning it later
-						ENTITYUUID=ENTITY_HARDCORE_${SPAWN}_$(($(date +%s) + 86400))_$RANDOM
-#						Adds the entity UUID to a log file, for despawning later
-						echo $ENTITYUUID >> $HARDCOREFILES/CurrentSpawns.log
-#						Spawns the entity into the target sector at the specified position
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity_pos $SPAWN $ENTITYUUID $(echo $TARGETSECTOR | tr "," " ") $INTERNALX $INTERNALY $INTERNALZ 0 False\n'"
-#						the internal coords are randomized to between -163 and +163 on each axis
-						INTERNALX=$(($RANDOM/100 - 163))
-						INTERNALY=$(($RANDOM/100 - 163))
-						INTERNALZ=$(($RANDOM/100 - 163))
-					done
-#					Sets the cooldown for 24hours
-					as_user "sed -i 's/\[$TARGETSECTOR\].*/\[$TARGETSECTOR\] $(($(date +%s) + 86400))/g' $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt"
-					as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
-				else
-#					If the cooldown time is less than now, then spawn
-					if [ ${SECTORDATA[1]} -le $(date +%s) ]
-					then
-#						Picks a random line from the sector teirs spawning file (each line is a sector spawn pattern)
-						SECTORSPAWN=($(shuf -n 1 $HARDCOREFILES/LevelSpawns${LEVELDATA[0]}.txt))
-#						Sets the internal sector positions to 1 so the first spawn in the list is in the exact center
-						INTERNALX=0
-						INTERNALY=0
-						INTERNALZ=0
-#						Loops over the number of entities spawned for that sector
-						for SPAWN in ${SECTORSPAWN[@]}
-						do
-#							Creates an entity UUID used for despawning it later
-							ENTITYUUID=ENTITY_HARDCORE_${SPAWN}_$(($(date +%s) + 86400))_$RANDOM
-#							Adds the entity UUID to a log file, for despawning later
-							echo $ENTITYUUID >> $HARDCOREFILES/CurrentSpawns.log
-#							Spawns the entity into the target sector at the specified position
-							as_user "screen -p 0 -S $SCREENID -X stuff $'/spawn_entity_pos $SPAWN $ENTITYUUID $(echo $TARGETSECTOR | tr "," " ") $INTERNALX $INTERNALY $INTERNALZ 0 False\n'"
-#							the internal coords are randomized to between -163 and +163 on each axis
-							INTERNALX=$(($RANDOM/100))
-							INTERNALY=$(($RANDOM/100))
-							INTERNALZ=$(($RANDOM/100))
-						done
-#						Sets the cooldown for 24hours
-						as_user "sed -i 's/\[$TARGETSECTOR\].*/\[$TARGETSECTOR\] $(($(date +%s) + 86400))/g' $HARDCOREFILES/LevelData${LEVELDATA[0]}.txt"
-						as_user "screen -p 0 -S $SCREENID -X stuff $'/force_save\n'"
-					fi
-				fi
-			fi
-		done
-	done < $HARDCOREFILES/PlayerRadius.txt
-fi
-}
-hardcore_removespawns(){
-if [ "$HARDCORE" = "YES" ]
-then
-	while [ -e /proc/$SM_LOG_PID ]
-	do
-#		Loops over every line in the CurrentSpawns.log file
-		while read SPAWN
-		do
-#			If the entity is more than 24 hours old, then despawn
-			if [ $(echo $SPAWN | cut -d"_" -f4) -le $(date +%s) ]
-			then
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all $SPAWN all false\n'"
-				as_user "screen -p 0 -S $SCREENID -X stuff $'/despawn_all $SPAWN all true\n'"
-				as_user "sed -i '/^$SPAWN/d' $HARDCOREFILES/CurrentSpawns.log"
-			else
-#				If it is not, then break the loop (theyre in age order by default)
-				break
-			fi
-		done < $HARDCOREFILES/CurrentSpawns.log
-		sleep 60
-	done
-fi
 }
 
 #---------------------------Chat Commands---------------------------------------------
@@ -5082,6 +4891,9 @@ destroy)
 backup)
 	sm_backup
 	;;
+livebackup)
+	sm_livebackup
+	;;
 smsay)
 	sm_say $@
 	;;
@@ -5138,12 +4950,9 @@ debug)
 	echo ${@:2}
 	parselog ${@:2}
 	;;
-hardcore)
-	smgm_hardcore ${@:2}
-	;;
 *)
-echo "Doomsider's and Titanmasher's Starmade Daemon (DSD) V.18"
-echo "Usage: starmaded.sh {help|updatefiles|start|stop|ebrake|install|reinstall|restore|status|destroy|restart|upgrade|upgradestar|smdo|smsay|cronstop|cronbackup|cronrestore|backup|backupstar|setplayermax|detect|log|screenlog|check|precheck|ban|dump|box}"
+echo "Doomsider's and Titanmasher's Starmade Daemon (DSD) V.17"
+echo "Usage: starmaded.sh {help|updatefiles|start|stop|ebrake|install|reinstall|restore|status|destroy|restart|upgrade|upgradestar|smdo|smsay|cronstop|cronbackup|cronrestore|backup|livebackup|backupstar|setplayermax|detect|log|screenlog|check|precheck|ban|dump|box}"
 #******************************************************************************
 exit 1
 ;;
@@ -5151,3 +4960,4 @@ esac
 exit 0
 # Notes:  When executing smdo and smsay enclose in "" and escape any special characters
 # All chat commands require a ! in front of them and the commands are always in caps
+
