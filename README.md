@@ -3,7 +3,7 @@ DTSD_Development
 
 The next development cycle for DTSD .18
 
-Goals:
+****************************** Goals *************************************
 
 Create a queue system for functions in logging
 
@@ -24,7 +24,7 @@ better abilities as the career advances
 
 Update Daemon functions to make use of the new file system
 
-Some ideas feel free to add:
+********************************** Some ideas feel free to add ***************************************
 
 Add ability to turn off random ingame tips
 
